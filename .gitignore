@@ -1,0 +1,6 @@
+rust/lib/src/bpf
+!rust/lib/src/bpf/mod.rs
+rust/target
+c/build
+c/.cache 
+c/compile_commands.json
