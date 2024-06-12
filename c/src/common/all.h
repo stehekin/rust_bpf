@@ -1,5 +1,5 @@
-#ifndef _NENP_COMMON_BPF_H_
-#define _NENP_COMMON_BPF_H_
+#ifndef _NENP_COMMON_ALL_H_
+#define _NENP_COMMON_ALL_H_
 
 #include <linux/bpf.h>
 #include <linux/types.h>

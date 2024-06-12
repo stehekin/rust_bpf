@@ -1,5 +1,4 @@
-rust/lib/src/bpf
-!rust/lib/src/bpf/mod.rs
+rust/lib/src/bpf/file_open.rs
 rust/target
 c/build
 c/.cache 

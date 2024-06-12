@@ -11,13 +11,9 @@
 #include <bpf_tracing.h>
 
 #include "common/vmlinux.h"
+#include "common/types.h"
 
 char _license[] SEC("license") = "GPL";
-
-typedef struct {
-  uint64_t s_dev;
-  uint64_t i_ino;
-} fo_inode;
 
 struct {
   __uint(type, BPF_MAP_TYPE_HASH);
@@ -37,10 +33,8 @@ int BPF_PROG(file_open, struct file *file) {
   };
 
   uint64_t *value = bpf_map_lookup_elem(&fo_inode_map, &node);
-  if (!value) {
-    bpf_printk("not found %d %d", inode, dev_t);
-  } else {
-    bpf_printk("found");
+  if (value) {
+        bpf_printk("found");
   }
 
   return 0;

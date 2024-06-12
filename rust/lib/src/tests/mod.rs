@@ -1,2 +1,1 @@
-#[cfg(test)]
-mod file_open_test;
+#[cfg(test)] mod file_open_test;
