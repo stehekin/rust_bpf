@@ -86,6 +86,7 @@ struct cred {
 struct super_block {
   dev_t s_dev;
   unsigned long s_magic;
+  struct dentry *s_root;
 };
 
 struct inode {
