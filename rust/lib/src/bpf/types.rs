@@ -41,3 +41,55 @@ fn bindgen_test_layout_fo_inode() {
         )
     );
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct fo_monitor_name {
+    pub path: [u8; 256usize],
+    pub path_meta: [u8; 32usize],
+    pub padding: [u8; 32usize],
+}
+#[test]
+fn bindgen_test_layout_fo_monitor_name() {
+    const UNINIT: ::std::mem::MaybeUninit<fo_monitor_name> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<fo_monitor_name>(),
+        320usize,
+        concat!("Size of: ", stringify!(fo_monitor_name))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<fo_monitor_name>(),
+        1usize,
+        concat!("Alignment of ", stringify!(fo_monitor_name))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).path) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(fo_monitor_name),
+            "::",
+            stringify!(path)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).path_meta) as usize - ptr as usize },
+        256usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(fo_monitor_name),
+            "::",
+            stringify!(path_meta)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).padding) as usize - ptr as usize },
+        288usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(fo_monitor_name),
+            "::",
+            stringify!(padding)
+        )
+    );
+}

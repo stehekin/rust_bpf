@@ -13,29 +13,54 @@
 #include "common/vmlinux.h"
 #include "common/types.h"
 
+#define S_IFMT  00170000
+#define S_IFREG  0100000
+#define S_ISREG(m)	(((m) & S_IFMT) == S_IFREG)
+#define S_ISDIR(m)	(((m) & S_IFMT) == S_IFDIR)
+
+#define MAX_HARDLINKS 8
+
 char _license[] SEC("license") = "GPL";
 
-struct {
-  __uint(type, BPF_MAP_TYPE_HASH);
-	__uint(max_entries, 10);
-	__type(key, fo_inode);
-	__type(value, uint64_t);
-} fo_inode_map SEC(".maps");
+typedef struct {
+  struct hlist_node *list_elem;
+} iterate_hardlinks_context;
+
+static int iterate_hardlinks(__u32 index, iterate_hardlinks_context *ihc) {
+  struct dentry *dentry = container_of(ihc->list_elem, struct dentry, d_u.d_alias);
+  if (!dentry) {
+    return BPF_LOOP_STOP;
+  }
+
+  bpf_printk("iterate_hardlinks %s", BPF_CORE_READ(dentry, d_name.name));
+
+  ihc->list_elem = BPF_CORE_READ(dentry, d_u.d_alias.next);
+  if (ihc->list_elem) {
+    return BPF_LOOP_CONTINUE;
+  }
+  return BPF_LOOP_STOP;
+}
 
 SEC("lsm/file_open")
 int BPF_PROG(file_open, struct file *file) {
-  uint64_t inode = BPF_CORE_READ(file, f_inode, i_ino);
-  uint64_t dev_t = BPF_CORE_READ(file, f_inode, i_sb, s_dev);
+  struct dentry *dentry = BPF_CORE_READ(file, f_path.dentry);
 
-  fo_inode node = {
-    .i_ino = inode,
-    .s_dev = dev_t,
+  if (!dentry) {
+    return 0;
+  }
+
+  struct inode *inode = BPF_CORE_READ(dentry, d_inode);
+
+  if (!S_ISREG(BPF_CORE_READ(inode, i_mode))) {
+    return 0;
+  }
+
+
+  iterate_hardlinks_context ihc = {
+    .list_elem = BPF_CORE_READ(inode, i_dentry.first),
   };
 
-  uint64_t *value = bpf_map_lookup_elem(&fo_inode_map, &node);
-  if (value) {
-        bpf_printk("found");
-  }
+  bpf_loop(MAX_HARDLINKS, iterate_hardlinks, &ihc, 0);
 
   return 0;
 }
