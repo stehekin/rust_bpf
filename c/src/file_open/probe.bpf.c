@@ -41,17 +41,16 @@ static int iterate_fstree(__u32 index, iterate_fstree_context *ifc) {
     return BPF_LOOP_STOP;
   }
 
+  bpf_printk("filename: %s", BPF_CORE_READ(dentry, d_name.name));
+
   struct inode *inode = BPF_CORE_READ(dentry, d_inode);
   if (!inode) {
     return BPF_LOOP_STOP;
   }
 
   if (inode == BPF_CORE_READ(inode, i_sb, s_root, d_inode)) {
-    bpf_printk("iterate_fstree: root");
     return BPF_LOOP_STOP;
   }
-
-  bpf_printk("iterate_fstree: %s", BPF_CORE_READ(dentry, d_name.name));
 
   ifc->dentry = BPF_CORE_READ(dentry, d_parent);
   ifc->depth += 1;

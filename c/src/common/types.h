@@ -4,12 +4,6 @@
 #include <stdint.h>
 #include "macros.h"
 
-#define FO_MAX_DEFINITION 32
-#define FO_MAX_PATH 256
-
-#define BPF_LOOP_STOP 1
-#define BPF_LOOP_CONTINUE 0
-
 typedef struct {
   uint64_t s_dev;
   uint64_t i_ino;
