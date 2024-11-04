@@ -27,6 +27,21 @@ typedef struct {
 
 #define MAX_DFS_STACK_ENTRIES 1024
 
+// Iterate all possible paths (e.g. hardlinks) of a given node.
+// Example of using the lib is below.
+/*
+  struct inode *inode = BPF_CORE_READ(file, f_path.dentry, d_inode);
+  if (!S_ISREG(BPF_CORE_READ(inode, i_mode))) {
+    return 0;
+  }
+
+  iterate_hardlinks_context ihc = {
+    .list_elem = BPF_CORE_READ(inode, i_dentry.first),
+  };
+
+  bpf_loop(MAX_HARDLINKS, iterate_hardlinks, &ihc, 0);
+*/
+
 static int iterate_fstree(__u32 index, iterate_fstree_context *ifc) {
   struct dentry *dentry = ifc->dentry;
   if (!dentry) {

@@ -131,7 +131,7 @@ struct linux_binprm {
   int argc;
   int envc;
   const char * filename;
-  const char * intrep;
+  const char * interp;
 };
 
 struct fdtable {
