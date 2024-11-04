@@ -33,8 +33,6 @@ static int iterate_fstree(__u32 index, iterate_fstree_context *ifc) {
     return BPF_LOOP_STOP;
   }
 
-  bpf_printk("filename: %s", BPF_CORE_READ(dentry, d_name.name));
-
   struct inode *inode = BPF_CORE_READ(dentry, d_inode);
   if (!inode) {
     return BPF_LOOP_STOP;

@@ -1,5 +1,5 @@
-#ifndef _NENP_COMMON_ALL_H_
-#define _NENP_COMMON_ALL_H_
+#ifndef _LW_COMMON_ALL_H_
+#define _LW_COMMON_ALL_H_
 
 #include <linux/bpf.h>
 #include <linux/types.h>

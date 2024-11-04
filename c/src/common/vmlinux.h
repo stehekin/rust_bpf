@@ -1,5 +1,5 @@
-#ifndef _NENP_COMMON_VMLINUX_H_
-#define _NENP_COMMON_VMLINUX_H_
+#ifndef _LW_COMMON_VMLINUX_H_
+#define _LW_COMMON_VMLINUX_H_
 
 #ifndef BPF_NO_PRESERVE_ACCESS_INDEX
 #pragma clang attribute push(__attribute__((preserve_access_index)),           \
@@ -130,6 +130,8 @@ struct linux_binprm {
   struct file *file;
   int argc;
   int envc;
+  const char * filename;
+  const char * intrep;
 };
 
 struct fdtable {
