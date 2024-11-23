@@ -18,6 +18,7 @@ char _license[] SEC("license") = "GPL";
 SEC("lsm/bprm_committed_creds")
 int BPF_PROG(bprm_committed_creds, const struct linux_binprm *bprm) {
   uint64_t blob_id;
-  copy_str_to_blob(bprm->filename, &blob_id);
+  long str_len;
+  copy_str_to_blob(bprm->filename, &blob_id, &str_len);
   return 0;
 }

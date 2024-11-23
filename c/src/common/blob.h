@@ -87,19 +87,24 @@ static inline lw_blob* next_blob(lw_blob *blob) {
   return next_blob;
 }
 
-// `copy_str` copies str to blobs. This function
-// * returns 0 if it has succeeded;
-// * returns -1 if it has failed.
+// `copy_str_to_blob` copies str to blobs. This function returns
+// * 0 if it has succeeded;
+// * -1 if it has failed;
 //
 // `blob_id` is the first blob submitted, even if the function has failed.
 // If no blobs are submitted, `blob_id` is -1.
+// `str_len` is the length of the str successfully copied.
 //
 // The last byte of all blobs submitted is NUL.
 //
-// Maximum blobs supported by this function is 256.
-#define MAX_BLOBS 256
-static inline int32_t copy_str_to_blob(const void *str, uint64_t *blob_id) {
+// Maximum blobs supported by this function is 16.
+#define MAX_BLOBS 16
+static inline int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long *str_len) {
   int32_t rv = -1;
+  if (!str || !blob_id || !str_len) {
+    return -1;
+  }
+
   long total_copied = 0;
 
   lw_blob * blob = reserve_blob();
@@ -108,11 +113,11 @@ static inline int32_t copy_str_to_blob(const void *str, uint64_t *blob_id) {
       *blob_id = blob->blob_id;
     }
 
-    long l1 = bpf_probe_read_kernel_str(blob->data, BLOB_DATA_SIZE, str + total_copied);
+    long len = bpf_probe_read_kernel_str(blob->data, BLOB_DATA_SIZE, str + total_copied);
 
-    if (l1 < 0) {
+    if (len < 0) {
       break;
-    } else if (l1 < BLOB_DATA_SIZE) {
+    } else if (len < BLOB_DATA_SIZE) {
       rv = 0;
       break;
     }
@@ -138,6 +143,7 @@ static inline int32_t copy_str_to_blob(const void *str, uint64_t *blob_id) {
 
   if (blob) {
     if (rv == 0) {
+      *str_len = total_copied;
       submit_blob(blob);
     } else {
       discard_blob(blob);
@@ -145,6 +151,35 @@ static inline int32_t copy_str_to_blob(const void *str, uint64_t *blob_id) {
   }
 
   return rv;
+}
+
+// `copy_str` copies str to the `dest`. This function returns
+// * 0 if it has succeeded and all bytes in the `str` are copied (NUL included);
+// * -1 if it has failed;
+// * 1 if it has succeeded but not all bytes in the `str` has copied;
+//
+// `str_len` is the length of the str successfully copied.
+static inline int32_t copy_str(uint8_t *dest, uint16_t size, const void *str, long *str_len) {
+  if (!dest || !size || !str || !str_len) {
+    return -1;
+  }
+
+  long len = bpf_probe_read_kernel_str(dest, size, str);
+  *str_len = len;
+  if (len < 0) {
+    return -1;
+  } else if (len < size) {
+    return 0;
+  }
+
+  // len == size
+  uint8_t last;
+  bpf_probe_read_kernel(&last, 1, str + len - 1);
+  if (last == 0) {
+    return 0;
+  } else {
+    return 1;
+  }
 }
 
 #endif
