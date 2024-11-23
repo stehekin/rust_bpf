@@ -98,7 +98,7 @@ static inline lw_blob* next_blob(lw_blob *blob) {
 //
 // Maximum blobs supported by this function is 256.
 #define MAX_BLOBS 256
-static inline int32_t copy_str_to_blob(uint8_t *str, uint64_t *blob_id) {
+static inline int32_t copy_str_to_blob(const void *str, uint64_t *blob_id) {
   int32_t rv = -1;
   long total_copied = 0;
 
