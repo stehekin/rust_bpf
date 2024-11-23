@@ -8,7 +8,7 @@ bindgen = "0.69"
 libbpf-cargo = "0.24"
 
 [dev-dependencies]
-tempfile = "3.10"
+tempfile = "3"
 
 [dependencies]
 anyhow = "1.0"

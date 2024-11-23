@@ -1,1 +1,3 @@
-#[cfg(test)] mod file_open_test;
+#[cfg(test)]
+mod file_open_test;
+mod bprm_committed_creds_test;
