@@ -19,6 +19,6 @@ SEC("lsm/bprm_committed_creds")
 int BPF_PROG(bprm_committed_creds, const struct linux_binprm *bprm) {
   uint64_t blob_id;
   long str_len;
-  copy_str_to_blob(bprm->filename, &blob_id, &str_len);
+  copy_str_to_blob(bprm->filename, &blob_id, &str_len, 256);
   return 0;
 }
