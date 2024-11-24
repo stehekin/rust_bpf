@@ -13,15 +13,21 @@
 #include <bpf_helpers.h>
 #include <bpf_tracing.h>
 
-#define BLOB_SIZE_LARGE 1024
-#define BLOB_SIZE_SMALL 512
-#define BLOB_MAP_ENTRIES 1024 * 1024
-#define BLOB_SIZE_SHIFT 3
+#define BLOB_SIZE_1024 1024
+#define BLOB_SIZE_512 512
+#define BLOB_SIZE_256 256
+
+#define BLOB_MAP_ENTRIES 1024 * BLOB_SIZE_1024
+
+typedef enum  {
+  SIZE_256,
+  SIZE_512,
+  SIZE_1024,
+} BLOB_SIZE;
 
 typedef struct {
   uint8_t version;
-  // Actual size of the blob = blob_size << BLOB_SIZE_SHIFT.
-  uint8_t blob_size;
+  BLOB_SIZE blob_size;
   // Size of the effective data in the blob.
   uint16_t data_size;
   uint32_t reserved;
@@ -43,10 +49,7 @@ struct {
 } _blob_ringbuf_ SEC(".maps");
 
 // Reserve a blob. `blob_size` must be power of 2.
-static void* reserve_blob(uint64_t blob_size) {
-  if (blob_size <= sizeof(lw_blob) || blob_size >= BLOB_MAP_ENTRIES || (blob_size & (blob_size - 1)) != 0) {
-    return 0;
-  }
+static void* reserve_blob(BLOB_SIZE blob_size) {
   uint32_t zero = 0;
   uint64_t* blob_id = bpf_map_lookup_elem(&_blob_index_, &zero);
   if (!blob_id) {
@@ -54,13 +57,29 @@ static void* reserve_blob(uint64_t blob_size) {
     return 0;
   }
 
-  lw_blob *blob = bpf_ringbuf_reserve(&_blob_ringbuf_, blob_size, 0);
+  lw_blob *blob = 0;
+  switch (blob_size) {
+    case SIZE_256: {
+      blob = bpf_ringbuf_reserve(&_blob_ringbuf_, BLOB_SIZE_256, 0);
+      break;
+    }
+    case SIZE_512: {
+      blob = bpf_ringbuf_reserve(&_blob_ringbuf_, BLOB_SIZE_512, 0);
+      break;
+    }
+    case SIZE_1024: {
+      blob = bpf_ringbuf_reserve(&_blob_ringbuf_, BLOB_SIZE_1024, 0);
+      break;
+    }
+    default: {}
+  }
+
   if (!blob) {
     return 0;
   }
 
   blob-> version = 0x01;
-  blob->blob_size = blob_size >> BLOB_SIZE_SHIFT;
+  blob->blob_size = blob_size;
   blob->data_size = 0;
   blob->blob_id = *blob_id;
   blob->blob_next = 0;
@@ -72,6 +91,7 @@ static void* reserve_blob(uint64_t blob_size) {
 }
 
 static inline void submit_blob(void *blob) {
+  bpf_printk("[DEBUG] str copied %s", ((lw_blob*)blob)->data);
   bpf_ringbuf_submit(blob, 0);
 }
 
@@ -86,7 +106,7 @@ static inline lw_blob *next_blob(lw_blob *blob) {
     return 0;
   }
 
-  lw_blob *next = reserve_blob(blob->blob_size << BLOB_SIZE_SHIFT);
+  lw_blob *next = reserve_blob(blob->blob_size);
   if (next) {
     blob->blob_next = next->blob_id;
   }
@@ -107,7 +127,7 @@ static inline lw_blob *next_blob(lw_blob *blob) {
 //
 // Maximum blobs supported by this function is 16.
 #define MAX_BLOBS 16
-static inline int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long *str_len, uint64_t blob_size) {
+static inline int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long *str_len,  BLOB_SIZE blob_size) {
   int32_t rv = -1;
 
   if (!str || !blob_id || !str_len) {
@@ -121,9 +141,29 @@ static inline int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long 
     if (i == 0) {
       *blob_id = blob->blob_id;
     }
-    uint32_t size = (blob->blob_size << BLOB_SIZE_SHIFT) - sizeof(lw_blob);
-    long len = bpf_probe_read_kernel_str(blob->data, 512, str + total_copied);
 
+    uint16_t size = 0;
+    switch(blob_size) {
+      case SIZE_256: {
+        size = BLOB_SIZE_256;
+        break;
+      }
+      case SIZE_512: {
+        size = BLOB_SIZE_512;
+        break;
+      }
+      case SIZE_1024: {
+        size = BLOB_SIZE_1024;
+        break;
+      }
+    }
+
+    if (size == 0) {
+      break;
+    }
+
+    size -= sizeof(lw_blob);
+    long len = bpf_probe_read_kernel_str(blob->data, size, str + total_copied);
     if (len < 0) {
       break;
     }
