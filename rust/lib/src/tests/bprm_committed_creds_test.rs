@@ -19,6 +19,7 @@ fn test_bprm_committed_creds() {
     rbb.add(&skel.maps._blob_ringbuf_, move |data| -> i32 {
         let data = lw_blob_with_data::copy_from_bytes(data);
         println!("header {0:?}", data.header);
+        println!("cpu: {0}, sequence: {1}", (data.header.blob_id & 0xFFFF000000000000)>>48, data.header.blob_id & 0x0000FFFFFFFFFFFF);
         println!("value  {0:?}", std::str::from_utf8(&data.data[..data.header.data_size as usize - 1]).expect("wrong"));
         return 0;
     }).unwrap();

@@ -22,8 +22,11 @@
 
 #define BLOB_MAP_ENTRIES 1024 * BLOB_SIZE_1024
 
+// `_blob_index_` is a per cpu array that saves the next blob id.
+// Blob is a 64-bit integer, with the first 16 bits as the cpu_id.
+// So the max cpu number supported is 2^16 ;-)
 struct {
-  __uint(type, BPF_MAP_TYPE_ARRAY);
+  __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
   __type(key, uint32_t);
   __type(value, uint64_t);
   __uint(max_entries, 1);
@@ -33,6 +36,13 @@ struct {
   __uint(type, BPF_MAP_TYPE_RINGBUF);
   __uint(max_entries, BLOB_MAP_ENTRIES);
 } _blob_ringbuf_ SEC(".maps");
+
+
+static inline uint64_t create_blob_id(uint64_t v) {
+  uint64_t cpu_id = bpf_get_smp_processor_id();
+  uint64_t result =  (v & 0x0000FFFFFFFFFFFF) | (cpu_id << 48);
+  return result;
+}
 
 // Reserve a blob. `blob_size` must be power of 2.
 static void* reserve_blob(BLOB_SIZE blob_size) {
@@ -67,17 +77,18 @@ static void* reserve_blob(BLOB_SIZE blob_size) {
   blob-> version = 0x01;
   blob->blob_size = blob_size;
   blob->data_size = 0;
-  blob->blob_id = *blob_id;
+  blob->blob_id = create_blob_id(*blob_id);
   blob->blob_next = 0;
 
   *blob_id = *blob_id + 1;
+
   bpf_map_update_elem(&_blob_index_, &zero, blob_id, BPF_ANY);
 
   return blob;
 }
 
 static inline void submit_blob(void *blob) {
-  bpf_printk("[DEBUG] str copied %s", ((lw_blob*)blob)->data);
+  // bpf_printk("[DEBUG] str copied %s", ((lw_blob*)blob)->data);
   bpf_ringbuf_submit(blob, 0);
 }
 
