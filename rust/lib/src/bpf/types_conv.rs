@@ -29,12 +29,13 @@ impl lw_blob {
 }
 
 impl lw_blob_with_data {
-    fn copy_from_bytes(buf: &[u8]) -> lw_blob_with_data {
+    pub fn copy_from_bytes(buf: &[u8]) -> lw_blob_with_data {
         let mut result = lw_blob_with_data {
             header: lw_blob::copy_from_bytes(buf),
             data: [0; BLOB_SIZE_MAX],
         };
-        plain::copy_from_bytes(&mut result.data[..result.header.data_size], &buf[size_of::<lw_blob>()..])
+        let size = result.header.data_size as usize;
+        plain::copy_from_bytes(&mut result.data[..size], &buf[size_of::<lw_blob>()..])
             .expect("corrupted data");
         result
     }

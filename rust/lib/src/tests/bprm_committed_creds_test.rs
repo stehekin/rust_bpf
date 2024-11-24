@@ -8,7 +8,7 @@ use libbpf_rs::{
     skel::{OpenSkel, Skel, SkelBuilder},
     MapHandle, MapType, RingBuffer, RingBufferBuilder,
 };
-use libbpf_sys::{ring_buffer__new, ring_buffer__poll};
+use crate::bpf::types_conv::lw_blob_with_data;
 
 
 #[test]
@@ -17,14 +17,20 @@ fn test_bprm_committed_creds() {
     let skel = load_bpf(&mut open_object).unwrap();
     let mut rbb = RingBufferBuilder::new();
     rbb.add(&skel.maps._blob_ringbuf_, move |data| -> i32 {
-        println!("data received\n");
+        let data = lw_blob_with_data::copy_from_bytes(data);
+        println!("header {0:?}", data.header);
+        println!("value  {0:?}", std::str::from_utf8(&data.data[..data.header.data_size as usize - 1]).expect("wrong"));
         return 0;
     }).unwrap();
 
     let rb = rbb.build().unwrap();
 
+    let mut count = 0;
     while rb.poll(Duration::from_secs(1)).is_ok() {
-        println!("got data\n");
+        count += 1;
+        if count > 10 {
+            break;
+        }
     }
 }
 
