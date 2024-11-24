@@ -14,6 +14,23 @@
 
 #define MAX_FILENAME 128
 
+typedef enum  {
+  SIZE_256,
+  SIZE_512,
+  SIZE_1024,
+} BLOB_SIZE;
+
+typedef struct {
+  uint8_t version;
+  BLOB_SIZE blob_size;
+  // Size of the effective data in the blob.
+  uint16_t data_size;
+  uint32_t reserved;
+  uint64_t blob_id;
+  uint64_t blob_next;
+  uint8_t data[0];
+} lw_blob;
+
 typedef struct {
   uint32_t uid;
   uint32_t gid;

@@ -13,28 +13,13 @@
 #include <bpf_helpers.h>
 #include <bpf_tracing.h>
 
+#include "types.h"
+
 #define BLOB_SIZE_1024 1024
 #define BLOB_SIZE_512 512
 #define BLOB_SIZE_256 256
 
 #define BLOB_MAP_ENTRIES 1024 * BLOB_SIZE_1024
-
-typedef enum  {
-  SIZE_256,
-  SIZE_512,
-  SIZE_1024,
-} BLOB_SIZE;
-
-typedef struct {
-  uint8_t version;
-  BLOB_SIZE blob_size;
-  // Size of the effective data in the blob.
-  uint16_t data_size;
-  uint32_t reserved;
-  uint64_t blob_id;
-  uint64_t blob_next;
-  uint8_t data[0];
-} lw_blob;
 
 struct {
   __uint(type, BPF_MAP_TYPE_ARRAY);
