@@ -15,16 +15,17 @@ use libbpf_sys::{ring_buffer__new, ring_buffer__poll};
 fn test_bprm_committed_creds() {
     let mut open_object = MaybeUninit::uninit();
     let skel = load_bpf(&mut open_object).unwrap();
-
     let mut rbb = RingBufferBuilder::new();
     rbb.add(&skel.maps._blob_ringbuf_, move |data| -> i32 {
-        println!("data received");
+        println!("data received\n");
         return 0;
     }).unwrap();
 
     let rb = rbb.build().unwrap();
 
-    while rb.poll(Duration::MAX).is_ok() {}
+    while rb.poll(Duration::from_secs(1)).is_ok() {
+        println!("got data\n");
+    }
 }
 
 fn load_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<ProbeSkel> {
