@@ -15,14 +15,15 @@
 #define MAX_FILENAME 128
 
 typedef enum  {
-  SIZE_256,
-  SIZE_512,
-  SIZE_1024,
+  SIZE_256 = 0,
+  SIZE_512 = 1,
+  SIZE_1024 = 2,
 } BLOB_SIZE;
 
 typedef struct {
   uint8_t version;
-  BLOB_SIZE blob_size;
+  // Size of the blob_size. This is an enum.
+  uint8_t blob_size;
   // Size of the effective data in the blob.
   uint16_t data_size;
   uint32_t reserved;

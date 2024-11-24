@@ -36,10 +36,10 @@ pub const BLOB_SIZE_SIZE_512: BLOB_SIZE = 1;
 pub const BLOB_SIZE_SIZE_1024: BLOB_SIZE = 2;
 pub type BLOB_SIZE = ::std::os::raw::c_uint;
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct lw_blob {
     pub version: u8,
-    pub blob_size: BLOB_SIZE,
+    pub blob_size: u8,
     pub data_size: u16,
     pub reserved: u32,
     pub blob_id: u64,
@@ -52,7 +52,7 @@ fn bindgen_test_layout_lw_blob() {
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<lw_blob>(),
-        32usize,
+        24usize,
         concat!("Size of: ", stringify!(lw_blob))
     );
     assert_eq!(
@@ -72,7 +72,7 @@ fn bindgen_test_layout_lw_blob() {
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).blob_size) as usize - ptr as usize },
-        4usize,
+        1usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_blob),
@@ -82,7 +82,7 @@ fn bindgen_test_layout_lw_blob() {
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).data_size) as usize - ptr as usize },
-        8usize,
+        2usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_blob),
@@ -92,7 +92,7 @@ fn bindgen_test_layout_lw_blob() {
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).reserved) as usize - ptr as usize },
-        12usize,
+        4usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_blob),
@@ -102,7 +102,7 @@ fn bindgen_test_layout_lw_blob() {
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).blob_id) as usize - ptr as usize },
-        16usize,
+        8usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_blob),
@@ -112,7 +112,7 @@ fn bindgen_test_layout_lw_blob() {
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).blob_next) as usize - ptr as usize },
-        24usize,
+        16usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_blob),
@@ -122,7 +122,7 @@ fn bindgen_test_layout_lw_blob() {
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).data) as usize - ptr as usize },
-        32usize,
+        24usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_blob),
@@ -132,7 +132,7 @@ fn bindgen_test_layout_lw_blob() {
     );
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct lw_creds {
     pub uid: u32,
     pub gid: u32,
@@ -301,9 +301,18 @@ fn bindgen_test_layout_lw_task() {
         )
     );
 }
+impl Default for lw_task {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
 #[doc = " Signal definitions."]
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct lw_signal_header {
     pub version: u16,
     pub type_: u16,
@@ -405,4 +414,13 @@ fn bindgen_test_layout_lw_signal_task() {
             stringify!(task)
         )
     );
+}
+impl Default for lw_signal_task {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
 }

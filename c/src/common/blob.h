@@ -15,6 +15,7 @@
 
 #include "types.h"
 
+#define BLOB_SIZE_MAX 1024
 #define BLOB_SIZE_1024 1024
 #define BLOB_SIZE_512 512
 #define BLOB_SIZE_256 256

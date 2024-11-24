@@ -38,6 +38,8 @@ fn bindgen() {
     let types = "../../c/src/common/types.h";
     let bindings = bindgen::Builder::default()
         .header(types)
+        .derive_debug(true)
+        .derive_default(true)
         .allowlist_file(types)
         .generate()
         .expect("unable to generate bindings");
