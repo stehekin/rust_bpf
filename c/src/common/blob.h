@@ -13,19 +13,31 @@
 #include <bpf_helpers.h>
 #include <bpf_tracing.h>
 
-#define BLOB_SIZE 1024
-#define BLOB_MAP_ENTRIES 1024 * BLOB_SIZE
-#define BLOB_DATA_SIZE (BLOB_SIZE - 24)
+#define BLOB_SIZE_LARGE 1024
+#define BLOB_SIZE_SMALL 512
+#define BLOB_MAP_ENTRIES 1024 * BLOB_SIZE_LARGE
 
 typedef struct {
-  uint16_t version;
+  uint8_t version;
+  // Size of the blob.
+  uint8_t blob_size;
+  // Size of the effective data in the blob;
   uint16_t data_size;
   uint32_t reserved;
   uint64_t blob_id;
   uint64_t blob_next;
+} lw_blob_header;
+
+typedef struct {
+  lw_blob_header header;
+  uint8_t data[BLOB_SIZE_LARGE - sizeof(lw_blob_header)];
+} lw_blob_large;
+
+typedef struct {
+  lw_blob_header header;
   // Must update BLOB_DATA_SIZE if updating lw_blob.
-  uint8_t data[BLOB_DATA_SIZE];
-} lw_blob;
+  uint8_t data[BLOB_SIZE_SMALL - sizeof(lw_blob_header)];
+} lw_blob_small;
 
 struct {
   __uint(type, BPF_MAP_TYPE_ARRAY);
@@ -39,7 +51,7 @@ struct {
   __uint(max_entries, BLOB_MAP_ENTRIES);
 } _blob_ringbuf_ SEC(".maps");
 
-static inline lw_blob* reserve_blob() {
+static void* _reserve_blob(uint64_t blob_size) {
   uint32_t zero = 0;
   uint64_t* blob_id = bpf_map_lookup_elem(&_blob_index_, &zero);
   if (!blob_id) {
@@ -47,15 +59,17 @@ static inline lw_blob* reserve_blob() {
     return 0;
   }
 
-  lw_blob *blob = bpf_ringbuf_reserve(&_blob_ringbuf_, sizeof(lw_blob), 0);
+  void *blob = bpf_ringbuf_reserve(&_blob_ringbuf_, blob_size, 0);
   if (!blob) {
     return 0;
   }
 
-  blob-> version = 0x01;
-  blob->data_size = 0;
-  blob->blob_id = *blob_id;
-  blob->blob_next = 0;
+  lw_blob_header *header = (void *)blob;
+
+  header-> version = 0x01;
+  header->data_size = 0;
+  header->blob_id = *blob_id;
+  header->blob_next = 0;
 
   *blob_id = *blob_id + 1;
   bpf_map_update_elem(&_blob_index_, &zero, blob_id, BPF_ANY);
@@ -63,29 +77,57 @@ static inline lw_blob* reserve_blob() {
   return blob;
 }
 
-static inline void submit_blob(lw_blob *blob) {
+static inline lw_blob_header* reserve_blob(uint8_t is_large) {
+  if (is_large) {
+    return _reserve_blob(sizeof(lw_blob_large));
+  } else {
+    return _reserve_blob(sizeof(lw_blob_small));
+  }
+}
+
+static inline void submit_blob(void *blob) {
   bpf_ringbuf_submit(blob, 0);
 }
 
-static inline void discard_blob(lw_blob *blob) {
+static inline void discard_blob(void *blob) {
   bpf_ringbuf_discard(blob, 0);
 }
 
-// `next_blob` reserves a new blob and links it to `blob`.
-// `next_blob` submits the given `blob`.
-static inline lw_blob* next_blob(lw_blob *blob) {
+// `next_blob_(large|small)` reserves a new blob and links it to `blob`.
+// `next_blob_(large|small)` submits the given `blob`.
+static inline lw_blob_header *_next_blob(lw_blob_header *blob_header, uint8_t is_large) {
+  if (!blob_header) {
+    return 0;
+  }
+
+  lw_blob_header *next_header = reserve_blob(is_large);
+  if (next_header) {
+    blob_header->blob_next = next_header->blob_id;
+  }
+
+  submit_blob(blob_header);
+  return next_header;
+}
+
+
+static inline lw_blob_header* next_blob_large(lw_blob_large *blob) {
+  return _next_blob(, uint8_t is_large)
+}
+
+static inline lw_blob_header* next_blob_small(lw_blob_small *blob) {
   if (!blob) {
     return 0;
   }
 
-  lw_blob *next_blob = reserve_blob();
+  lw_blob_header *next_blob = reserve_blob_small();
   if (next_blob) {
-    blob->blob_next = next_blob->blob_id;
+    blob->header.blob_next = next_blob->blob_id;
   }
 
   submit_blob(blob);
   return next_blob;
 }
+
 
 // `copy_str_to_blob` copies str to blobs. This function returns
 // * 0 if it has succeeded;
@@ -99,7 +141,7 @@ static inline lw_blob* next_blob(lw_blob *blob) {
 //
 // Maximum blobs supported by this function is 16.
 #define MAX_BLOBS 16
-static inline int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long *str_len) {
+static inline int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long *str_len, bool use_large) {
   int32_t rv = -1;
   if (!str || !blob_id || !str_len) {
     return -1;
