@@ -165,8 +165,9 @@ static inline int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long 
       break;
     }
 
+    // Don't count the trailing NIL.
     total_copied += len - 1;
-    blob->data_size = len;
+    blob->data_size = len - 1;
 
     if (len < size) {
       rv = 0;

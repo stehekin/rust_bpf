@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use bindgen::callbacks::ImplementsTrait::No;
 use crate::bpf::types_conv::lw_blob_with_data;
 
 pub struct BlobManager {
