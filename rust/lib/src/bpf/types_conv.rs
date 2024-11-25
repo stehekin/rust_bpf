@@ -11,6 +11,15 @@ pub struct lw_blob_with_data {
     pub data: [u8; BLOB_SIZE_MAX],
 }
 
+impl Default for lw_blob_with_data {
+    fn default() -> Self {
+        lw_blob_with_data {
+            header: lw_blob::default(),
+            data: [0; BLOB_SIZE_MAX],
+        }
+    }
+}
+
 unsafe impl Plain for lw_blob {}
 impl lw_blob {
     fn from_bytes(buf: &[u8]) -> &lw_blob {

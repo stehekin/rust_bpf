@@ -1,7 +1,7 @@
 [package]
+edition = "2021"
 name = "bpf-lib"
 version = "0.1.0"
-edition = "2021"
 
 [build-dependencies]
 bindgen = "0.69"
@@ -12,7 +12,8 @@ tempfile = "3"
 
 [dependencies]
 anyhow = "1.0"
+bindgen = "0.70"
 libbpf-rs = "0.24"
 libbpf-sys = "1.5"
-bindgen = "0.69"
+num_cpus = "1"
 plain = "0.2"
