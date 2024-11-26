@@ -12,6 +12,7 @@
 #include <limits.h>
 #include <stdint.h>
 
+// Trailing NULL included.
 #define MAX_FILENAME 128
 
 typedef enum  {
@@ -42,26 +43,39 @@ typedef struct {
 typedef struct {
   uint32_t pid;
   uint32_t tgid;
-  uint64_t start_boottime;
+  uint64_t start_boottime_ns;
   uint32_t ppid;
   uint32_t rpid;
-  // str_flag determines if filename and interp are blob ids or strings.
+  // `str_flag` determines if filename and interp are blob ids or strings.
   uint64_t str_flag;
   uint8_t filename[MAX_FILENAME];
   uint8_t interp[MAX_FILENAME];
+  uint8_t pwd[MAX_FILENAME];
 } lw_task;
 
-/// Signal definitions.
+//------------------------------------
+//     Signal Definitions Below
+//------------------------------------
+
+typedef enum {
+  SIGNAL_TASK = 0x01,
+} lw_signal_type;
+
+// cpu_id + time_ns is the key of a signal.
 typedef struct {
-  uint16_t version;
-  uint16_t type;
-  uint32_t reserved;
+  uint8_t version;
+  uint8_t type;
+  // Id of the cpu emitted the event.
+  uint16_t cpu_id;
+  uint16_t reserved;
+  uint64_t signal_time_ns;
 } lw_signal_header;
 
 typedef struct {
   lw_signal_header header;
   lw_creds creds;
   lw_task task;
+  uint64_t start_boottime_ns;
 } lw_signal_task;
 
 // static int parse_task(struct task_struct *src, lw_task *target) {

@@ -124,7 +124,7 @@ static inline lw_blob *next_blob(lw_blob *blob) {
 //
 // Maximum blobs supported by this function is 16.
 #define MAX_BLOBS 16
-static inline int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long *str_len,  BLOB_SIZE blob_size) {
+static int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long *str_len,  BLOB_SIZE blob_size) {
   int32_t rv = -1;
 
   if (!str || !blob_id || !str_len) {
@@ -209,7 +209,7 @@ static inline int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long 
 // * -1 if it has failed;
 // * 1 if it has succeeded but not all bytes in the `str` has copied;
 //
-// `str_len` is the length of the str successfully copied.
+// `str_len` is the length of the str successfully copied (NUL included).
 static inline int32_t copy_str(uint8_t *dest, uint16_t size, const void *str, long *str_len) {
   if (!dest || !size || !str || !str_len) {
     return -1;

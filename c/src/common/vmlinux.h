@@ -128,6 +128,7 @@ struct file {
 
 struct linux_binprm {
   struct file *file;
+  struct cred *cred;
   int argc;
   int envc;
   const char * filename;
