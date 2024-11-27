@@ -13,7 +13,6 @@
 #include <bpf_helpers.h>
 #include <bpf_tracing.h>
 
-#include "common/macros.h"
 #include "common/vmlinux.h"
 
 static int parse_binprm(const struct linux_binprm *bprm) {

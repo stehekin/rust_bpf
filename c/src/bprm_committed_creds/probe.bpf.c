@@ -23,5 +23,8 @@ int BPF_PROG(bprm_committed_creds, const struct linux_binprm *bprm) {
   set_signal_header(&signal_task.header, SIGNAL_TASK);
   const struct cred *cred = BPF_CORE_READ(current, real_cred);
   set_creds(&signal_task.creds, cred);
+
+
+
   return 0;
 }

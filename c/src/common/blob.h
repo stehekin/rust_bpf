@@ -44,6 +44,37 @@ static inline uint64_t create_blob_id(uint64_t v) {
   return result;
 }
 
+static BLOB_SIZE to_blob_size(long data_len) {
+    BLOB_SIZE blob_size = SIZE_256;
+
+    if (data_len > BLOB_SIZE_512 - sizeof(lw_blob)) {
+      blob_size = SIZE_1024;
+    } else if (data_len > BLOB_SIZE_256 - sizeof(lw_blob)) {
+      blob_size = SIZE_512;
+    }
+
+    return blob_size;
+}
+
+static uint16_t from_blob_size(BLOB_SIZE blob_size) {
+    uint16_t size = 0;
+    switch(blob_size) {
+      case SIZE_256: {
+        size = BLOB_SIZE_256;
+        break;
+      }
+      case SIZE_512: {
+        size = BLOB_SIZE_512;
+        break;
+      }
+      case SIZE_1024: {
+        size = BLOB_SIZE_1024;
+        break;
+      }
+    }
+    return size;
+}
+
 // Reserve a blob. `blob_size` must be power of 2.
 static void* reserve_blob(BLOB_SIZE blob_size) {
   uint32_t zero = 0;
@@ -124,7 +155,7 @@ static inline lw_blob *next_blob(lw_blob *blob) {
 //
 // Maximum blobs supported by this function is 16.
 #define MAX_BLOBS 16
-static int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long *str_len,  BLOB_SIZE blob_size) {
+static int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long *str_len,  BLOB_SIZE blob_size, uint8_t kernel_space) {
   int32_t rv = -1;
 
   if (!str || !blob_id || !str_len) {
@@ -139,28 +170,18 @@ static int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long *str_le
       *blob_id = blob->blob_id;
     }
 
-    uint16_t size = 0;
-    switch(blob_size) {
-      case SIZE_256: {
-        size = BLOB_SIZE_256;
-        break;
-      }
-      case SIZE_512: {
-        size = BLOB_SIZE_512;
-        break;
-      }
-      case SIZE_1024: {
-        size = BLOB_SIZE_1024;
-        break;
-      }
-    }
-
+    uint16_t size = from_blob_size(blob_size);
     if (size == 0) {
       break;
     }
 
     size -= sizeof(lw_blob);
-    long len = bpf_probe_read_kernel_str(blob->data, size, str + total_copied);
+    long len = 0;
+    if (kernel_space) {
+      len = bpf_probe_read_kernel_str(blob->data, size, str + total_copied);
+    } else {
+      len = bpf_probe_read_user_str(blob->data, size, str + total_copied);
+    }
     if (len < 0) {
       break;
     }
@@ -195,6 +216,79 @@ static int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long *str_le
   if (blob) {
     if (rv == 0) {
       *str_len = total_copied;
+      submit_blob(blob);
+    } else {
+      discard_blob(blob);
+    }
+  }
+
+  return rv;
+}
+
+// `copy_data_to_blob` copies data to blobs. This function returns
+// * 0 if it has succeeded;
+// * -1 if it has failed;
+//
+// `blob_id` is the first blob submitted, even if the function has failed.
+// If no blobs are submitted, `blob_id` is -1.
+// `data_len` is the length of the data to be copied (NULL not included).
+//
+// Maximum blobs supported by this function is 16.
+static int32_t copy_data_to_blob(const void *src, long data_len, uint64_t *blob_id, uint8_t kernel_space) {
+  int32_t rv = -1;
+
+  if (!src || !blob_id || !data_len) {
+    return rv;
+  }
+
+  long total_copied = 0;
+
+  BLOB_SIZE blob_size = to_blob_size(data_len);
+  lw_blob * blob = reserve_blob(blob_size);
+
+  for (uint16_t i = 0; i < MAX_BLOBS && blob; i++) {
+    if (i == 0) {
+      *blob_id = blob->blob_id;
+    }
+
+    uint16_t size = from_blob_size(blob_size);
+    size -= sizeof(lw_blob);
+
+    if (size > data_len) {
+      size = data_len;
+    }
+
+    long len = 0;
+    if (kernel_space) {
+      len = bpf_probe_read_kernel(blob->data, size, src + total_copied);
+    } else {
+      len = bpf_probe_read_user(blob->data, size, src + total_copied);
+    }
+    if (len < 0) {
+      break;
+    }
+
+    total_copied += len;
+    blob->data_size = len;
+    data_len -= len;
+
+    if (!data_len) {
+      rv = 0;
+      break;
+    }
+
+    // MAX_BLOBS allocated.
+    if (i == MAX_BLOBS - 1) {
+      submit_blob(blob);
+      blob = 0;
+      break;
+    }
+
+    blob = next_blob(blob);
+  }
+
+  if (blob) {
+    if (rv == 0) {
       submit_blob(blob);
     } else {
       discard_blob(blob);
