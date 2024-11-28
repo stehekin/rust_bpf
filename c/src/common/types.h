@@ -100,6 +100,7 @@ typedef struct {
     syscall_data_t syscall_data;
     bool syscall_traced; // indicates that syscall_data is valid
     uint8_t container_state;  // the state of the container the task resides in
+    bool initialized; // this task_info_t has been initialized
 } task_info_t;
 
 #endif

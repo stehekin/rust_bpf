@@ -139,11 +139,16 @@ struct ns_common {
   unsigned int inum;
 };
 
+struct new_utsname {
+    char nodename[65];
+};
+
 struct user_namespace {
   struct ns_common ns;
 };
 
 struct uts_namespace {
+  struct new_utsname name;
   struct ns_common ns;
 };
 
@@ -216,6 +221,7 @@ struct task_struct {
   const struct cred *real_cred;    // __rcu.
   struct task_struct *parent;      // __rcu.
   struct task_struct *real_parent; // __rcu.
+  u64 start_time;
   // Deprecated. Use start_boottime if it exists.
   u64 real_start_time;
   u64 start_boottime;

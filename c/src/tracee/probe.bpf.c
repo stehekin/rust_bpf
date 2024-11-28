@@ -10,36 +10,46 @@
 #include <bpf_helpers.h>
 #include <bpf_tracing.h>
 
-#include "common/arch.h"
-#include "common/blob.h"
-#include "common/signals.h"
 #include "common/types.h"
 #include "common/vmlinux.h"
 
 char _license[] SEC("license") = "GPL";
 
+struct {
+    __uint(type, BPF_MAP_TYPE_TASK_STORAGE);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+    __type(key, uint32_t);
+    __type(value, task_info_t);
+} _task_info_task_storage_ SEC(".maps");
+
+static void init_task_info() {
+
+}
+
+
 SEC("raw_tracepoint/sys_enter")
 int tracepoint__raw_syscalls__sys_enter(struct bpf_raw_tracepoint_args *ctx) {
-    struct task_struct *task = (struct task_struct *) bpf_get_current_task();
+    struct task_struct *current = (struct task_struct *) bpf_get_current_task_btf();
 
     u64 pid_tgid = bpf_get_current_pid_tgid();
     u32 tid = pid_tgid;
-    task_info_t *task_info = bpf_map_lookup_elem(&task_info_map, &tid);
-    if (unlikely(task_info == NULL)) {
-        task_info = init_task_info(tid, 0);
-        if (unlikely(task_info == NULL))
-            return 0;
 
-        int zero = 0;
-        config_entry_t *config = bpf_map_lookup_elem(&config_map, &zero);
-        if (unlikely(config == NULL))
-            return 0;
+    task_info_t *task_info  = bpf_task_storage_get(&_task_info_task_storage_, current, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
 
-        init_task_context(&task_info->context, task, config->options);
+    if (!task_info) {
+        return 0;
     }
 
-    syscall_data_t *sys = &(task_info->syscall_data);
-    sys->id = ctx->args[1];
+    if (!task_info->initialized) {
+
+    }
+
+    bpf_printk("[DEBUG] got task_info");
+
+    // syscall_data_t *sys = &(task_info->syscall_data);
+    // sys->id = ctx->args[1];
+
+    /*
 
     // See https://xcellerator.github.io/posts/linux_rootkits_02/ to understand
     // syscall wrapper in kernel 4.17+
@@ -47,14 +57,14 @@ int tracepoint__raw_syscalls__sys_enter(struct bpf_raw_tracepoint_args *ctx) {
         struct pt_regs *regs = (struct pt_regs *) ctx->args[0];
 
         if (is_x86_compat(task)) {
-#if defined(bpf_target_x86)
+    #if defined(bpf_target_x86)
             sys->args.args[0] = BPF_CORE_READ(regs, bx);
             sys->args.args[1] = BPF_CORE_READ(regs, cx);
             sys->args.args[2] = BPF_CORE_READ(regs, dx);
             sys->args.args[3] = BPF_CORE_READ(regs, si);
             sys->args.args[4] = BPF_CORE_READ(regs, di);
             sys->args.args[5] = BPF_CORE_READ(regs, bp);
-#endif // bpf_target_x86
+    #endif // bpf_target_x86
         } else {
             sys->args.args[0] = PT_REGS_PARM1_CORE_SYSCALL(regs);
             sys->args.args[1] = PT_REGS_PARM2_CORE_SYSCALL(regs);
@@ -87,6 +97,6 @@ int tracepoint__raw_syscalls__sys_enter(struct bpf_raw_tracepoint_args *ctx) {
     bpf_tail_call(ctx, &sys_enter_submit_tail, sys->id);
 
     // call syscall handler, if exists
-    bpf_tail_call(ctx, &sys_enter_tails, sys->id);
+    bpf_tail_call(ctx, &sys_enter_tails, sys->id); */
     return 0;
 }
