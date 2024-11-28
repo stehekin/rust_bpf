@@ -12,6 +12,14 @@
 #include <limits.h>
 #include <stdint.h>
 
+#include "common/macros.h"
+
+typedef enum {
+  false = 0,
+  true = 1
+} bool;
+
+
 // Trailing NULL included.
 #define MAX_FILENAME 128
 
@@ -54,40 +62,44 @@ typedef struct {
 } lw_task;
 
 //------------------------------------
-//     Signal Definitions Below
+//     Tracee Definitions Below
 //------------------------------------
 
-typedef enum {
-  SIGNAL_TASK = 0x01,
-} lw_signal_type;
+typedef struct task_context {
+    uint64_t start_time;               // task's start time
+    uint64_t cgroup_id;                // control group ID
+    uint32_t pid;                      // PID as in the userspace term
+    uint32_t tid;                      // TID as in the userspace term
+    uint32_t ppid;                     // Parent PID as in the userspace term
+    uint32_t host_pid;                 // PID in host pid namespace
+    uint32_t host_tid;                 // TID in host pid namespace
+    uint32_t host_ppid;                // Parent PID in host pid namespace
+    uint32_t uid;                      // task's effective UID
+    uint32_t mnt_id;                   // task's mount namespace ID
+    uint32_t pid_id;                   // task's pid namespace ID
+    char comm[TASK_COMM_LEN];     // task's comm
+    char uts_name[TASK_COMM_LEN]; // task's uts name
+    uint32_t flags;                    // task's status flags (see context_flags_e)
+    uint64_t leader_start_time;        // task leader's monotonic start time
+    uint64_t parent_start_time;        // parent process task leader's monotonic start time
+} task_context_t;
 
-// cpu_id + time_ns is the key of a signal.
 typedef struct {
-  uint8_t version;
-  uint8_t type;
-  // Id of the cpu emitted the event.
-  uint16_t cpu_id;
-  uint16_t reserved;
-  uint64_t signal_time_ns;
-} lw_signal_header;
+    unsigned long args[6];
+} args_t;
 
 typedef struct {
-  lw_signal_header header;
-  lw_creds creds;
-  lw_task task;
-  uint64_t start_boottime_ns;
-} lw_signal_task;
+    uint32_t id;           // Current syscall id
+    args_t args;       // Syscall arguments
+    unsigned long ts;  // Timestamp of syscall entry
+    unsigned long ret; // Syscall ret val. May be used by syscall exit tail calls.
+} syscall_data_t;
 
-// static int parse_task(struct task_struct *src, lw_task *target) {
-//   if (!src || !target) {
-//     return 0;
-//   }
-
-//   target->pid = BPF_CORE_READ(src, pid);
-//   target->tgid = BPF_CORE_READ(src, tgid);
-//   target->start_boottime = BPF_CORE_READ(src, start_boottime);
-
-//   return 0;
-// }
+typedef struct {
+    task_context_t context;
+    syscall_data_t syscall_data;
+    bool syscall_traced; // indicates that syscall_data is valid
+    uint8_t container_state;  // the state of the container the task resides in
+} task_info_t;
 
 #endif

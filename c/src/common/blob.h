@@ -155,7 +155,7 @@ static inline lw_blob *next_blob(lw_blob *blob) {
 //
 // Maximum blobs supported by this function is 16.
 #define MAX_BLOBS 16
-static int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long *str_len,  BLOB_SIZE blob_size, uint8_t kernel_space) {
+static int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, uint64_t *str_len,  BLOB_SIZE blob_size, uint8_t kernel_space) {
   int32_t rv = -1;
 
   if (!str || !blob_id || !str_len) {
@@ -185,6 +185,8 @@ static int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long *str_le
     if (len < 0) {
       break;
     }
+
+    bpf_printk("[DEBUG] %s", blob->data);
 
     // Don't count the trailing NIL.
     total_copied += len - 1;
@@ -234,7 +236,7 @@ static int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, long *str_le
 // `data_len` is the length of the data to be copied (NULL not included).
 //
 // Maximum blobs supported by this function is 16.
-static int32_t copy_data_to_blob(const void *src, long data_len, uint64_t *blob_id, uint8_t kernel_space) {
+static int32_t copy_data_to_blob(const void *src, uint64_t data_len, uint64_t *blob_id, uint8_t kernel_space) {
   int32_t rv = -1;
 
   if (!src || !blob_id || !data_len) {

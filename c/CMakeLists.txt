@@ -21,7 +21,7 @@ include_directories(${LLVM_INCLUDE_DIRS} "/usr/include/bpf" "src")
 separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
 add_definitions(${LLVM_DEFINITIONS_LIST})
 
-list(APPEND BPF_LIST "file_open" "bprm_committed_creds")
+list(APPEND BPF_LIST "tracee")
 foreach(bpf IN LISTS BPF_LIST)
     # clang output is an object file.
     add_library(${bpf} OBJECT src/${bpf}/probe.bpf.c)

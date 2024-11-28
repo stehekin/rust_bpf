@@ -38,11 +38,6 @@ typedef __s64 s64;
 
 typedef __u64 u64;
 
-enum {
-  false = 0,
-  true = 1,
-};
-
 typedef u32 __kernel_dev_t;
 typedef __kernel_dev_t dev_t;
 #define __dev_t_defined
@@ -207,6 +202,10 @@ struct files_struct {
 
 struct mm_struct {
   struct file *exe_file; // __rcu.
+  unsigned long arg_start;
+  unsigned long arg_end;
+  unsigned long env_start;
+  unsigned long env_end;
 };
 
 struct task_struct {

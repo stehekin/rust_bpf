@@ -43,6 +43,4 @@ static inline void set_creds(lw_creds *dest, const struct cred *src) {
   BPF_CORE_READ_INTO(&dest->uid, src, uid);
 }
 
-static u64
-
 #endif

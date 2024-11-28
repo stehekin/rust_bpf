@@ -12,4 +12,6 @@
 #define BPF_LOOP_STOP 1
 #define BPF_LOOP_CONTINUE 0
 
+#define TASK_COMM_LEN 16
+
 #endif
