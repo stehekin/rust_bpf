@@ -5,9 +5,6 @@
 #include <linux/types.h>
 #include <linux/magic.h>
 
-#include <limits.h>
-#include <stdint.h>
-
 #include <bpf_core_read.h>
 #include <bpf_endian.h>
 #include <bpf_helpers.h>
@@ -24,70 +21,69 @@ static struct task_struct *get_parent_task(struct task_struct *task) {
     return BPF_CORE_READ(task, real_parent);
 }
 
-static uint32_t get_task_pid(struct task_struct *task) {
+static u32 get_task_pid(struct task_struct *task) {
     return BPF_CORE_READ(task, pid);
 }
 
-static uint32_t get_task_ppid(struct task_struct *task) {
+static u32 get_task_ppid(struct task_struct *task) {
     struct task_struct *parent = BPF_CORE_READ(task, real_parent);
     return BPF_CORE_READ(parent, tgid);
 }
 
-static uint32_t get_task_pid_vnr(struct task_struct *task) {
+static u32 get_task_pid_vnr(struct task_struct *task) {
     unsigned int level = 0;
     struct pid *pid = BPF_CORE_READ(task, thread_pid);
     level = BPF_CORE_READ(pid, level);
     return BPF_CORE_READ(pid, numbers[level].nr);
 }
 
-static uint32_t get_task_ns_pid(struct task_struct *task) {
+static u32 get_task_ns_pid(struct task_struct *task) {
     return get_task_pid_vnr(task);
 }
 
-static uint32_t get_task_ns_tgid(struct task_struct *task) {
+static u32 get_task_ns_tgid(struct task_struct *task) {
     struct task_struct *group_leader = BPF_CORE_READ(task, group_leader);
     return get_task_pid_vnr(group_leader);
 }
 
-static uint32_t get_task_pid_ns_id(struct task_struct *task) {
+static u32 get_task_pid_ns_id(struct task_struct *task) {
     unsigned int level = 0;
-    struct pid *pid = NULL;
-    struct pid_namespace *ns = BPF_CORE_READ(task, thread_pid);
+    struct pid * pid = BPF_CORE_READ(task, thread_pid);
     level = BPF_CORE_READ(pid, level);
-    ns = BPF_CORE_READ(pid, numbers[level].ns);
+    struct pid_namespace *ns = BPF_CORE_READ(pid, numbers[level].ns);
     return BPF_CORE_READ(ns, ns.inum);
 }
 
 
-static uint32_t get_mnt_ns_id(struct nsproxy *ns) {
+static u32 get_mnt_ns_id(struct nsproxy *ns) {
     return BPF_CORE_READ(ns, mnt_ns, ns.inum);
 }
 
-static uint32_t get_task_mnt_ns_id(struct task_struct *task) {
+static u32 get_task_mnt_ns_id(struct task_struct *task) {
     return get_mnt_ns_id(BPF_CORE_READ(task, nsproxy));
 }
 
-static uint32_t get_pid_ns_for_children_id(struct nsproxy *ns) {
+static u32 get_pid_ns_for_children_id(struct nsproxy *ns) {
     return BPF_CORE_READ(ns, pid_ns_for_children, ns.inum);
 }
 
-static uint32_t get_uts_ns_id(struct nsproxy *ns) {
+static u32 get_uts_ns_id(struct nsproxy *ns) {
     return BPF_CORE_READ(ns, uts_ns, ns.inum);
 }
 
-static uint32_t get_ipc_ns_id(struct nsproxy *ns) {
+static u32 get_ipc_ns_id(struct nsproxy *ns) {
     return BPF_CORE_READ(ns, ipc_ns, ns.inum);
 }
 
-static uint32_t get_net_ns_id(struct nsproxy *ns) {
+static u32 get_net_ns_id(struct nsproxy *ns) {
     return BPF_CORE_READ(ns, net_ns, ns.inum);
 }
 
-static uint32_t get_cgroup_ns_id(struct nsproxy *ns) {
+static u32 get_cgroup_ns_id(struct nsproxy *ns) {
     return BPF_CORE_READ(ns, cgroup_ns, ns.inum);
 }
 
-static uint64_t get_task_start_time(struct task_struct *task) {
+static u64 get_task_start_time(struct task_struct *task) {
     // Only use the boot time member if we can use boot time for current time
     if (bpf_core_enum_value_exists(enum bpf_func_id, BPF_FUNC_ktime_get_boot_ns)) {
         // real_start_time was renamed to start_boottime in kernel 5.5, so most likely
@@ -106,7 +102,7 @@ static char *get_task_uts_name(struct task_struct *task) {
     return BPF_CORE_READ(uts_ns, name.nodename);
 }
 
-static uint32_t init_task_context(task_context_t *tsk_ctx, struct task_struct *task, u32 options) {
+static u32 init_task_context(task_context_t *tsk_ctx, struct task_struct *task) {
     // NOTE: parent process is always a real process, not a potential thread group leader.
     struct task_struct *leader = get_leader_task(task);
     struct task_struct *parent_process = get_leader_task(get_parent_task(leader));

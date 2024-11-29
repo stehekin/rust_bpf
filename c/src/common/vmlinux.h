@@ -1,42 +1,77 @@
 #ifndef _LW_COMMON_VMLINUX_H_
 #define _LW_COMMON_VMLINUX_H_
 
+#include "common/int_types.h"
+
 #ifndef BPF_NO_PRESERVE_ACCESS_INDEX
 #pragma clang attribute push(__attribute__((preserve_access_index)),           \
                              apply_to = record)
 #endif
 
-typedef signed char __s8;
+#if defined(__TARGET_ARCH_x86)
 
-typedef unsigned char __u8;
+struct thread_info {
+    u32 status;
+};
 
-typedef short int __s16;
+struct pt_regs {
+    long unsigned int r15;
+    long unsigned int r14;
+    long unsigned int r13;
+    long unsigned int r12;
+    long unsigned int bp;
+    long unsigned int bx;
+    long unsigned int r11;
+    long unsigned int r10;
+    long unsigned int r9;
+    long unsigned int r8;
+    long unsigned int ax;
+    long unsigned int cx;
+    long unsigned int dx;
+    long unsigned int si;
+    long unsigned int di;
+    long unsigned int orig_ax;
+    long unsigned int ip;
+    long unsigned int cs;
+    long unsigned int flags;
+    long unsigned int sp;
+    long unsigned int ss;
+};
 
-typedef short unsigned int __u16;
+#elif defined(__TARGET_ARCH_arm64)
 
-typedef int __s32;
+struct thread_info {
+    long unsigned int flags;
+};
 
-typedef unsigned int __u32;
+struct user_pt_regs {
+    __u64 regs[31];
+    __u64 sp;
+    __u64 pc;
+    __u64 pstate;
+};
 
-typedef long long int __s64;
+struct pt_regs {
+    union {
+        struct user_pt_regs user_regs;
+        struct {
+            u64 regs[31];
+            u64 sp;
+            u64 pc;
+            u64 pstate;
+        };
+    };
+    u64 orig_x0;
+    s32 syscallno;
+    u32 unused2;
+    u64 orig_addr_limit;
+    u64 pmr_save;
+    u64 stackframe[2];
+    u64 lockdep_hardirqs;
+    u64 exit_rcu;
+};
 
-typedef long long unsigned int __u64;
-
-typedef __s8 s8;
-
-typedef __u8 u8;
-
-typedef __s16 s16;
-
-typedef __u16 u16;
-
-typedef __s32 s32;
-
-typedef __u32 u32;
-
-typedef __s64 s64;
-
-typedef __u64 u64;
+#endif
 
 typedef u32 __kernel_dev_t;
 typedef __kernel_dev_t dev_t;
@@ -214,6 +249,7 @@ struct mm_struct {
 };
 
 struct task_struct {
+  struct thread_info thread_info;
   int pid;
   int tgid;
   kuid_t loginuid;

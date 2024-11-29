@@ -2,16 +2,12 @@
 #include <linux/types.h>
 #include <linux/magic.h>
 
-#include <limits.h>
-#include <stdint.h>
-
 #include <bpf_core_read.h>
 #include <bpf_endian.h>
 #include <bpf_helpers.h>
 #include <bpf_tracing.h>
 
 #include "common/blob.h"
-#include "common/signals.h"
 #include "common/types.h"
 #include "common/vmlinux.h"
 
@@ -25,9 +21,9 @@ int BPF_PROG(bprm_committed_creds, const struct linux_binprm *bprm) {
   // const struct cred *cred = BPF_CORE_READ(current, real_cred);
   // set_creds(&signal_task.creds, cred);
 
-  uint64_t blob_id;
-  uint64_t start;
-  uint64_t end;
+  u64 blob_id;
+  u64 start;
+  u64 end;
 
   BPF_CORE_READ_INTO(&start, current, mm, arg_start);
   BPF_CORE_READ_INTO(&end, current, mm, arg_end);

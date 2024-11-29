@@ -2,9 +2,6 @@
 #include <linux/types.h>
 #include <linux/magic.h>
 
-#include <limits.h>
-#include <stdint.h>
-
 #include <bpf_core_read.h>
 #include <bpf_endian.h>
 #include <bpf_helpers.h>
@@ -18,7 +15,7 @@
 
 typedef struct {
   struct dentry *dentry;
-  __u32 depth;
+  u32 depth;
 } iterate_fstree_context;
 
 typedef struct {

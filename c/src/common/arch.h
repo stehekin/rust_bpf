@@ -5,17 +5,18 @@
 #include <linux/types.h>
 #include <linux/magic.h>
 
-#include <limits.h>
-#include <stdint.h>
-
 #include <bpf_core_read.h>
 #include <bpf_endian.h>
 #include <bpf_helpers.h>
 #include <bpf_tracing.h>
 
-
-#include "common/macros.h"
 #include "common/vmlinux.h"
+
+// TODO: support both ARM and x86.
+#if defined(__TARGET_ARCH_x86)
+  #define TS_COMPAT 0x0002
+#elif defined(__TARGET_ARCH_arm64)
+#endif
 
 static inline bool is_x86_compat(struct task_struct *task)
 {

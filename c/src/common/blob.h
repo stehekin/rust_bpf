@@ -4,15 +4,13 @@
 #include <linux/bpf.h>
 #include <linux/types.h>
 #include <linux/magic.h>
-
-#include <limits.h>
-#include <stdint.h>
-
+W
 #include <bpf_core_read.h>
 #include <bpf_endian.h>
 #include <bpf_helpers.h>
 #include <bpf_tracing.h>
 
+#include "int_types.h"
 #include "types.h"
 
 #define BLOB_SIZE_MAX 1024
@@ -27,8 +25,8 @@
 // So the max cpu number supported is 2^16 ;-)
 struct {
   __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-  __type(key, uint32_t);
-  __type(value, uint64_t);
+  __type(key, u32);
+  __type(value, u64);
   __uint(max_entries, 1);
 } _blob_index_ SEC(".maps");
 
@@ -38,9 +36,9 @@ struct {
 } _blob_ringbuf_ SEC(".maps");
 
 
-static inline uint64_t create_blob_id(uint64_t v) {
-  uint64_t cpu_id = bpf_get_smp_processor_id();
-  uint64_t result =  (v & 0x0000FFFFFFFFFFFF) | (cpu_id << 48);
+static inline u64 create_blob_id(u64 v) {
+  u64 cpu_id = bpf_get_smp_processor_id();
+  u64 result =  (v & 0x0000FFFFFFFFFFFF) | (cpu_id << 48);
   return result;
 }
 
@@ -56,8 +54,8 @@ static BLOB_SIZE to_blob_size(long data_len) {
     return blob_size;
 }
 
-static uint16_t from_blob_size(BLOB_SIZE blob_size) {
-    uint16_t size = 0;
+static u16 from_blob_size(BLOB_SIZE blob_size) {
+    u16 size = 0;
     switch(blob_size) {
       case SIZE_256: {
         size = BLOB_SIZE_256;
@@ -77,8 +75,8 @@ static uint16_t from_blob_size(BLOB_SIZE blob_size) {
 
 // Reserve a blob. `blob_size` must be power of 2.
 static void* reserve_blob(BLOB_SIZE blob_size) {
-  uint32_t zero = 0;
-  uint64_t* blob_id = bpf_map_lookup_elem(&_blob_index_, &zero);
+  u32 zero = 0;
+  u64* blob_id = bpf_map_lookup_elem(&_blob_index_, &zero);
   if (!blob_id) {
     // Cannot happen.
     return 0;
@@ -155,8 +153,8 @@ static inline lw_blob *next_blob(lw_blob *blob) {
 //
 // Maximum blobs supported by this function is 16.
 #define MAX_BLOBS 16
-static int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, uint64_t *str_len,  BLOB_SIZE blob_size, uint8_t kernel_space) {
-  int32_t rv = -1;
+static s32 copy_str_to_blob(const void *str, u64 *blob_id, u64 *str_len,  BLOB_SIZE blob_size, u8 kernel_space) {
+  s32 rv = -1;
 
   if (!str || !blob_id || !str_len) {
     return rv;
@@ -165,12 +163,12 @@ static int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, uint64_t *st
   long total_copied = 0;
 
   lw_blob * blob = reserve_blob(blob_size);
-  for (uint16_t i = 0; i < MAX_BLOBS && blob; i++) {
+  for (u16 i = 0; i < MAX_BLOBS && blob; i++) {
     if (i == 0) {
       *blob_id = blob->blob_id;
     }
 
-    uint16_t size = from_blob_size(blob_size);
+    u16 size = from_blob_size(blob_size);
     if (size == 0) {
       break;
     }
@@ -197,7 +195,7 @@ static int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, uint64_t *st
       break;
     }
 
-    uint8_t last;
+    u8 last;
     bpf_probe_read_kernel(&last, 1, str + total_copied);
     // No more blobs needed.
     if (last == 0) {
@@ -236,8 +234,8 @@ static int32_t copy_str_to_blob(const void *str, uint64_t *blob_id, uint64_t *st
 // `data_len` is the length of the data to be copied (NULL not included).
 //
 // Maximum blobs supported by this function is 16.
-static int32_t copy_data_to_blob(const void *src, uint64_t data_len, uint64_t *blob_id, uint8_t kernel_space) {
-  int32_t rv = -1;
+static s32 copy_data_to_blob(const void *src, u64 data_len, u64 *blob_id, u8 kernel_space) {
+  s32 rv = -1;
 
   if (!src || !blob_id || !data_len) {
     return rv;
@@ -248,12 +246,12 @@ static int32_t copy_data_to_blob(const void *src, uint64_t data_len, uint64_t *b
   BLOB_SIZE blob_size = to_blob_size(data_len);
   lw_blob * blob = reserve_blob(blob_size);
 
-  for (uint16_t i = 0; i < MAX_BLOBS && blob; i++) {
+  for (u16 i = 0; i < MAX_BLOBS && blob; i++) {
     if (i == 0) {
       *blob_id = blob->blob_id;
     }
 
-    uint16_t size = from_blob_size(blob_size);
+    u16 size = from_blob_size(blob_size);
     size -= sizeof(lw_blob);
 
     if (size > data_len) {
@@ -306,7 +304,7 @@ static int32_t copy_data_to_blob(const void *src, uint64_t data_len, uint64_t *b
 // * 1 if it has succeeded but not all bytes in the `str` has copied;
 //
 // `str_len` is the length of the str successfully copied (NUL included).
-static inline int32_t copy_str(uint8_t *dest, uint16_t size, const void *str, long *str_len) {
+static inline s32 copy_str(u8 *dest, u16 size, const void *str, long *str_len) {
   if (!dest || !size || !str || !str_len) {
     return -1;
   }
@@ -320,7 +318,7 @@ static inline int32_t copy_str(uint8_t *dest, uint16_t size, const void *str, lo
   }
 
   // len == size
-  uint8_t last;
+  u8 last;
   bpf_probe_read_kernel(&last, 1, str + len - 1);
   if (last == 0) {
     return 0;

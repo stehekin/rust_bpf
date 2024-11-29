@@ -8,7 +8,7 @@ project(tangram_ebpf LANGUAGES C)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS)
 set(CMAKE_C_COMPILER "/usr/bin/clang")
-set(CMAKE_C_FLAGS "-g -O2 -target bpf -emit-llvm")
+set(CMAKE_C_FLAGS "-g -O2 -target bpf -emit-llvm -D__TARGET_ARCH_x86")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 find_package(LLVM REQUIRED CONFIG)
