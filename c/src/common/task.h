@@ -1,8 +1,8 @@
 #ifndef _LW_TASK_H_
 #define _LW_TASK_H_
 
-#include "common/vmlinux.h"
-#include "common/types.h"
+#include "vmlinux.h"
+#include "types.h"
 
 #include <linux/bpf.h>
 

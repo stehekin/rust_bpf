@@ -4,7 +4,7 @@
 #include <linux/bpf.h>
 #include <linux/types.h>
 #include <linux/magic.h>
-W
+
 #include <bpf_core_read.h>
 #include <bpf_endian.h>
 #include <bpf_helpers.h>

@@ -1,7 +1,7 @@
 #ifndef __LW_ARCH_H__
 #define __LW_ARCH_H__
 
-#include "common/vmlinux.h"
+#include "vmlinux.h"
 
 // TODO: support both ARM and x86.
 #if defined(__TARGET_ARCH_x86)

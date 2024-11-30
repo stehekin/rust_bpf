@@ -5,8 +5,8 @@
 // `types.h` defines the structures of data passing from the ebpf to the userspace.
 //
 
-#include "common/macros.h"
-#include "common/int_types.h"
+#include "macros.h"
+#include "int_types.h"
 
 // Trailing NULL included.
 #define MAX_FILENAME 128
