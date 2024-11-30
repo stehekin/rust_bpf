@@ -1,17 +1,13 @@
 #ifndef _LW_TASK_H_
 #define _LW_TASK_H_
 
+#include "common/vmlinux.h"
+#include "common/types.h"
+
 #include <linux/bpf.h>
-#include <linux/types.h>
-#include <linux/magic.h>
 
 #include <bpf_core_read.h>
-#include <bpf_endian.h>
 #include <bpf_helpers.h>
-#include <bpf_tracing.h>
-
-#include "common/types.h"
-#include "common/vmlinux.h"
 
 static struct task_struct *get_leader_task(struct task_struct *task) {
     return BPF_CORE_READ(task, group_leader);

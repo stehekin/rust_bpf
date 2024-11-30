@@ -2,16 +2,16 @@
 #include <linux/types.h>
 #include <linux/magic.h>
 
-#include <bpf_core_read.h>
-#include <bpf_endian.h>
-#include <bpf_helpers.h>
-#include <bpf_tracing.h>
-
 #include "common/arch.h"
 #include "common/task.h"
 #include "common/types.h"
 #include "common/vmlinux.h"
 #include "common/kconfig.h"
+
+#include <bpf_core_read.h>
+#include <bpf_endian.h>
+#include <bpf_helpers.h>
+#include <bpf_tracing.h>
 
 char _license[] SEC("license") = "GPL";
 
@@ -52,7 +52,6 @@ int tracepoint__raw_syscalls__sys_enter(struct bpf_raw_tracepoint_args *ctx) {
     // syscall wrapper in kernel 4.17+
     if (get_kconfig(ARCH_HAS_SYSCALL_WRAPPER)) {
         struct pt_regs *regs = (struct pt_regs *) ctx->args[0];
-
         if (is_x86_compat(current)) {
     #if defined(bpf_target_x86)
             sys->args.args[0] = BPF_CORE_READ(regs, bx);

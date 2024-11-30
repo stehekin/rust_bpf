@@ -5,10 +5,6 @@
 // `types.h` defines the structures of data passing from the ebpf to the userspace.
 //
 
-#include <linux/bpf.h>
-#include <linux/types.h>
-#include <linux/magic.h>
-
 #include "common/macros.h"
 #include "common/int_types.h"
 

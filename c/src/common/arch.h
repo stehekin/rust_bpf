@@ -1,15 +1,6 @@
 #ifndef __LW_ARCH_H__
 #define __LW_ARCH_H__
 
-#include <linux/bpf.h>
-#include <linux/types.h>
-#include <linux/magic.h>
-
-#include <bpf_core_read.h>
-#include <bpf_endian.h>
-#include <bpf_helpers.h>
-#include <bpf_tracing.h>
-
 #include "common/vmlinux.h"
 
 // TODO: support both ARM and x86.

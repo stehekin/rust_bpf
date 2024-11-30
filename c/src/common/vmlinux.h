@@ -1,5 +1,5 @@
-#ifndef _LW_COMMON_VMLINUX_H_
-#define _LW_COMMON_VMLINUX_H_
+#ifndef __VMLINUX_H__
+#define __VMLINUX_H__
 
 #include "common/int_types.h"
 
