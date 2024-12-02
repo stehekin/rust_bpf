@@ -250,6 +250,7 @@ struct mm_struct {
 
 struct task_struct {
   struct thread_info thread_info;
+  unsigned int flags;
   int pid;
   int tgid;
   kuid_t loginuid;

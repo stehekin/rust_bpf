@@ -1,11 +1,11 @@
 #ifndef _LW_TASK_H_
 #define _LW_TASK_H_
 
-#include "vmlinux.h"
-#include "types.h"
 
-#include <linux/bpf.h>
-
+#include "common/macros.h"
+#include "common/vmlinux.h"
+#include "maps.h"
+#include "arch.h"
 #include <bpf_core_read.h>
 #include <bpf_helpers.h>
 
@@ -124,6 +124,10 @@ static u32 init_task_context(task_context_t *tsk_ctx, struct task_struct *task) 
     tsk_ctx->leader_start_time = get_task_start_time(leader);
     tsk_ctx->parent_start_time = get_task_start_time(parent_process);
 
+    if (is_compat(task)) {
+      tsk_ctx->flags |= IS_COMPAT_FLAG;
+    }
+
     // Program name
     bpf_get_current_comm(&tsk_ctx->comm, sizeof(tsk_ctx->comm));
 
@@ -135,5 +139,161 @@ static u32 init_task_context(task_context_t *tsk_ctx, struct task_struct *task) 
     return 0;
 }
 
+static inline int get_task_flags(struct task_struct *task) {
+    return BPF_CORE_READ(task, flags);
+}
 
+static inline int get_syscall_id_from_regs(struct pt_regs *regs)
+{
+#if defined(bpf_target_x86)
+    int id = BPF_CORE_READ(regs, orig_ax);
+#elif defined(bpf_target_arm64)
+    int id = BPF_CORE_READ(regs, syscallno);
+#endif
+    return id;
+}
+
+static int get_current_task_syscall_id(void) {
+  // There is no originated syscall in kernel thread context
+  struct task_struct *curr = (struct task_struct *) bpf_get_current_task_btf();
+  if (get_task_flags(curr) & PF_KTHREAD) {
+      return NO_SYSCALL;
+  }
+
+  struct pt_regs *regs = (struct pt_regs *) bpf_task_pt_regs(curr);
+  return get_syscall_id_from_regs(regs);
+}
+
+static void init_proc_info_scratch(u32 pid, scratch_t *scratch) {
+    __builtin_memset(&scratch->proc_info, 0, sizeof(proc_info_t));
+    bpf_map_update_elem(&proc_info_map, &pid, &scratch->proc_info, BPF_NOEXIST);
+}
+
+static proc_info_t *init_proc_info(u32 pid, u32 scratch_idx) {
+    scratch_t *scratch = bpf_map_lookup_elem(&scratch_map, &scratch_idx);
+    if (unlikely(scratch == NULL))
+        return NULL;
+
+    init_proc_info_scratch(pid, scratch);
+
+    return bpf_map_lookup_elem(&proc_info_map, &pid);
+}
+
+static void init_task_info_scratch(u32 tid, scratch_t *scratch) {
+    __builtin_memset(&scratch->task_info, 0, sizeof(task_info_t));
+    bpf_map_update_elem(&task_info_map, &tid, &scratch->task_info, BPF_NOEXIST);
+}
+
+static task_info_t *init_task_info(u32 tid, u32 scratch_idx) {
+    scratch_t *scratch = bpf_map_lookup_elem(&scratch_map, &scratch_idx);
+    if (unlikely(scratch == NULL))
+        return NULL;
+
+    init_task_info_scratch(tid, scratch);
+
+    return bpf_map_lookup_elem(&task_info_map, &tid);
+}
+
+static event_config_t *get_event_config(u32 event_id, u16 policies_version) {
+    // TODO: we can remove this extra lookup by moving to per event rules_version
+    void *inner_events_map = bpf_map_lookup_elem(&events_map_version, &policies_version);
+    if (inner_events_map == NULL)
+        return NULL;
+
+    return bpf_map_lookup_elem(inner_events_map, &event_id);
+}
+
+static int init_program_data(program_data_t *p, void *ctx, u32 event_id) {
+    int zero = 0;
+
+    p->ctx = ctx;
+
+    if (p->event == NULL) {
+        p->event = bpf_map_lookup_elem(&event_data_map, &zero);
+        if (unlikely(p->event == NULL))
+            return 0;
+    }
+
+    p->config = bpf_map_lookup_elem(&config_map, &zero);
+    if (unlikely(p->config == NULL))
+        return 0;
+
+    p->event->args_buf.offset = 0;
+    p->event->args_buf.argnum = 0;
+    p->event->task = (struct task_struct *)bpf_get_current_task_btf();
+
+    __builtin_memset(&p->event->context.task, 0, sizeof(p->event->context.task));
+
+    // Get the minimal context required at this stage.
+    // Any other context will be initialized only if event is submitted.
+    u64 id = bpf_get_current_pid_tgid();
+    // Task pid.
+    p->event->context.task.host_tid = id;
+    // Task tgid.
+    p->event->context.task.host_pid = id >> 32;
+    p->event->context.eventid = event_id;
+    p->event->context.ts = bpf_ktime_get_boot_ns();
+    p->event->context.processor_id = (u16) bpf_get_smp_processor_id();
+    p->event->context.syscall = get_current_task_syscall_id();
+
+    u32 host_pid = p->event->context.task.host_pid;
+    p->proc_info = bpf_map_lookup_elem(&proc_info_map, &host_pid);
+    if (unlikely(p->proc_info == NULL)) {
+        p->proc_info = init_proc_info(host_pid, p->scratch_idx);
+        if (unlikely(p->proc_info == NULL))
+            return 0;
+    }
+
+    u32 host_tid = p->event->context.task.host_tid;
+    p->task_info = bpf_map_lookup_elem(&task_info_map, &host_tid);
+    if (unlikely(p->task_info == NULL)) {
+        p->task_info = init_task_info(host_tid, p->scratch_idx);
+        if (unlikely(p->task_info == NULL))
+            return 0;
+
+        init_task_context(&p->task_info->context, p->event->task);
+    }
+
+    // Only cgroup v2 is supported.
+    p->event->context.task.cgroup_id = bpf_get_current_cgroup_id();
+    p->task_info->context.cgroup_id = p->event->context.task.cgroup_id;
+
+    u32 cgroup_id_lsb = p->event->context.task.cgroup_id;
+    u8 *state = bpf_map_lookup_elem(&containers_map, &cgroup_id_lsb);
+    if (state != NULL) {
+        p->task_info->container_state = *state;
+        switch (*state) {
+            case CONTAINER_STARTED:
+            case CONTAINER_EXISTED:
+                p->event->context.task.flags |= CONTAINER_STARTED_FLAG;
+        }
+    }
+
+    if (unlikely(p->event->context.policies_version != p->config->policies_version)) {
+        // copy policies_config to event data
+        long ret = bpf_probe_read_kernel(
+            &p->event->policies_config, sizeof(policies_config_t), &p->config->policies_config);
+        if (unlikely(ret != 0))
+            return 0;
+
+        p->event->context.policies_version = p->config->policies_version;
+    }
+
+    // default to match all policies until an event is selected
+    p->event->config.submit_for_policies = ~0ULL;
+
+    if (event_id != NO_EVENT_SUBMIT) {
+        p->event->config.submit_for_policies = 0;
+        event_config_t *event_config = get_event_config(event_id, p->event->context.policies_version);
+        if (event_config != NULL) {
+            p->event->config.param_types = event_config->param_types;
+            p->event->config.submit_for_policies = event_config->submit_for_policies;
+        }
+    }
+
+    // initialize matched_policies to the policies that actually requested this event
+    p->event->context.matched_policies = p->event->config.submit_for_policies;
+
+    return 1;
+}
 #endif
