@@ -113,12 +113,12 @@ static void* reserve_blob(BLOB_SIZE blob_size) {
   return blob;
 }
 
-static inline void submit_blob(void *blob) {
-  // bpf_printk("[DEBUG] str copied %s", ((lw_blob*)blob)->data);
+static inline void submit_blob(lw_blob *blob) {
+  bpf_printk(">>%d<<", blob->data_size);
   bpf_ringbuf_submit(blob, 0);
 }
 
-static inline void discard_blob(void *blob) {
+static inline void discard_blob(lw_blob *blob) {
   bpf_ringbuf_discard(blob, 0);
 }
 
@@ -226,14 +226,16 @@ static s32 copy_str_to_blob(const void *str, u64 *blob_id, u64 *str_len,  BLOB_S
 // `data_len` is the length of the data to be copied (NULL not included).
 //
 // Maximum blobs supported by this function is 16.
-static s32 copy_data_to_blob(const void *src, u64 data_len, u64 *blob_id, u8 kernel_space) {
+static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, u8 kernel_space) {
   s32 rv = -1;
 
   if (!src || !blob_id || !data_len) {
     return rv;
   }
 
-  long total_copied = 0;
+  bpf_printk("--%d--", data_len);
+
+  long data_ptr = 0;
   BLOB_SIZE blob_size = BLOB_SIZE_256;
 
   if (data_len > BLOB_SIZE_512 - sizeof(lw_blob)) {
@@ -250,21 +252,26 @@ static s32 copy_data_to_blob(const void *src, u64 data_len, u64 *blob_id, u8 ker
       *blob_id = blob->blob_id;
     }
 
-    long len = 0;
+    long result = 0;
+
     if (kernel_space) {
-      len = bpf_probe_read_kernel(blob->data, blob_size, src + total_copied);
+      result = bpf_probe_read_kernel(blob->data, blob_size, src + data_ptr);
     } else {
-      len = bpf_probe_read_user(blob->data, blob_size, src + total_copied);
+      result = bpf_probe_read_user(blob->data, blob_size, src + data_ptr);
     }
-    if (len < 0) {
+    if (result < 0) {
       break;
     }
 
-    total_copied += len;
-    blob->data_size = len;
-    data_len -= len;
+    u64 copied = data_len - data_ptr;
+    if (copied > blob_size) {
+      copied = blob_size;
+    }
 
-    if (!data_len) {
+    data_ptr += copied;
+    blob->data_size = copied;
+
+    if (data_ptr == data_len) {
       rv = 0;
       break;
     }
