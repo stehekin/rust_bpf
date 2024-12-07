@@ -1,5 +1,5 @@
-#ifndef _LW_MACROS_H_
-#define _LW_MACROS_H_
+#ifndef __LW_MACROS_H__
+#define __LW_MACROS_H__
 
 #define S_IFMT  00170000
 #define S_IFREG  0100000

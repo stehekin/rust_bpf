@@ -13,12 +13,7 @@
 #include "int_types.h"
 #include "types.h"
 
-#define BLOB_SIZE_MAX 1024
-#define BLOB_SIZE_1024 1024
-#define BLOB_SIZE_512 512
-#define BLOB_SIZE_256 256
-
-#define BLOB_MAP_ENTRIES 1024 * BLOB_SIZE_1024
+#define BLOB_MAP_ENTRIES 1024 * BLOB_SIZE_MAX
 
 // `_blob_index_` is a per cpu array that saves the next blob id.
 // Blob is a 64-bit integer, with the first 16 bits as the cpu_id.
@@ -42,38 +37,40 @@ static inline u64 create_blob_id(u64 v) {
   return result;
 }
 
-static BLOB_SIZE to_blob_size(long data_len) {
-    BLOB_SIZE blob_size = SIZE_256;
+// static inline BLOB_SIZE to_blob_size(long data_len, u16 *size) {
+//     BLOB_SIZE blob_size = SIZE_256;
+//     *size = 256;
 
-    if (data_len > BLOB_SIZE_512 - sizeof(lw_blob)) {
-      blob_size = SIZE_1024;
-    } else if (data_len > BLOB_SIZE_256 - sizeof(lw_blob)) {
-      blob_size = SIZE_512;
-    }
+//     if (data_len > BLOB_SIZE_512 - sizeof(lw_blob)) {
+//       blob_size = SIZE_1024;
+//       *size = 1024;
+//     } else if (data_len > BLOB_SIZE_256 - sizeof(lw_blob)) {
+//       blob_size = SIZE_512;
+//       *size = 512;
+//     }
 
-    return blob_size;
-}
+//     return blob_size;
+// }
 
-static u16 from_blob_size(BLOB_SIZE blob_size) {
-    u16 size = 0;
-    switch(blob_size) {
-      case SIZE_256: {
-        size = BLOB_SIZE_256;
-        break;
-      }
-      case SIZE_512: {
-        size = BLOB_SIZE_512;
-        break;
-      }
-      case SIZE_1024: {
-        size = BLOB_SIZE_1024;
-        break;
-      }
-    }
-    return size;
-}
+// static inline u16 from_blob_size(BLOB_SIZE blob_size) {
+//     u16 size = 0;
+//     switch(blob_size) {
+//       case SIZE_256: {
+//         size = BLOB_SIZE_256;
+//         break;
+//       }
+//       case SIZE_512: {
+//         size = BLOB_SIZE_512;
+//         break;
+//       }
+//       case SIZE_1024: {
+//         size = BLOB_SIZE_1024;
+//         break;
+//       }
+//     }
+//     return size;
+// }
 
-// Reserve a blob. `blob_size` must be power of 2.
 static void* reserve_blob(BLOB_SIZE blob_size) {
   u32 zero = 0;
   u64* blob_id = bpf_map_lookup_elem(&_blob_index_, &zero);
@@ -84,15 +81,15 @@ static void* reserve_blob(BLOB_SIZE blob_size) {
 
   lw_blob *blob = 0;
   switch (blob_size) {
-    case SIZE_256: {
+    case BLOB_SIZE_256: {
       blob = bpf_ringbuf_reserve(&_blob_ringbuf_, BLOB_SIZE_256, 0);
       break;
     }
-    case SIZE_512: {
+    case BLOB_SIZE_512: {
       blob = bpf_ringbuf_reserve(&_blob_ringbuf_, BLOB_SIZE_512, 0);
       break;
     }
-    case SIZE_1024: {
+    case BLOB_SIZE_1024: {
       blob = bpf_ringbuf_reserve(&_blob_ringbuf_, BLOB_SIZE_1024, 0);
       break;
     }
@@ -156,7 +153,7 @@ static inline lw_blob *next_blob(lw_blob *blob) {
 static s32 copy_str_to_blob(const void *str, u64 *blob_id, u64 *str_len,  BLOB_SIZE blob_size, u8 kernel_space) {
   s32 rv = -1;
 
-  if (!str || !blob_id || !str_len) {
+  if (!str || !blob_id || !str_len || !blob_size) {
     return rv;
   }
 
@@ -168,17 +165,12 @@ static s32 copy_str_to_blob(const void *str, u64 *blob_id, u64 *str_len,  BLOB_S
       *blob_id = blob->blob_id;
     }
 
-    u16 size = from_blob_size(blob_size);
-    if (size == 0) {
-      break;
-    }
-
-    size -= sizeof(lw_blob);
+    blob_size -= sizeof(lw_blob);
     long len = 0;
     if (kernel_space) {
-      len = bpf_probe_read_kernel_str(blob->data, size, str + total_copied);
+      len = bpf_probe_read_kernel_str(blob->data, blob_size, str + total_copied);
     } else {
-      len = bpf_probe_read_user_str(blob->data, size, str + total_copied);
+      len = bpf_probe_read_user_str(blob->data, blob_size, str + total_copied);
     }
     if (len < 0) {
       break;
@@ -190,7 +182,7 @@ static s32 copy_str_to_blob(const void *str, u64 *blob_id, u64 *str_len,  BLOB_S
     total_copied += len - 1;
     blob->data_size = len - 1;
 
-    if (len < size) {
+    if (len < blob_size) {
       rv = 0;
       break;
     }
@@ -242,27 +234,27 @@ static s32 copy_data_to_blob(const void *src, u64 data_len, u64 *blob_id, u8 ker
   }
 
   long total_copied = 0;
+  BLOB_SIZE blob_size = BLOB_SIZE_256;
 
-  BLOB_SIZE blob_size = to_blob_size(data_len);
+  if (data_len > BLOB_SIZE_512 - sizeof(lw_blob)) {
+    blob_size = BLOB_SIZE_1024;
+  } else if (data_len > BLOB_SIZE_256 - sizeof(lw_blob)) {
+    blob_size = BLOB_SIZE_512;
+  }
+
   lw_blob * blob = reserve_blob(blob_size);
+  blob_size -= sizeof(lw_blob);
 
   for (u16 i = 0; i < MAX_BLOBS && blob; i++) {
     if (i == 0) {
       *blob_id = blob->blob_id;
     }
 
-    u16 size = from_blob_size(blob_size);
-    size -= sizeof(lw_blob);
-
-    if (size > data_len) {
-      size = data_len;
-    }
-
     long len = 0;
     if (kernel_space) {
-      len = bpf_probe_read_kernel(blob->data, size, src + total_copied);
+      len = bpf_probe_read_kernel(blob->data, blob_size, src + total_copied);
     } else {
-      len = bpf_probe_read_user(blob->data, size, src + total_copied);
+      len = bpf_probe_read_user(blob->data, blob_size, src + total_copied);
     }
     if (len < 0) {
       break;

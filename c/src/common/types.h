@@ -1,26 +1,24 @@
-#ifndef _LW_TYPES_H_
-#define _LW_TYPES_H_
+#ifndef __LW_TYPES_H__
+#define __LW_TYPES_H__
 
 //
 // `types.h` defines the structures of data passing from the ebpf to the userspace.
 //
-
-#include "macros.h"
 #include "int_types.h"
-#include "vmlinux.h"
 
 // Trailing NULL included.
 #define MAX_FILENAME 128
 
 typedef enum  {
-  SIZE_256 = 0,
-  SIZE_512 = 1,
-  SIZE_1024 = 2,
+  BLOB_SIZE_256 = 256,
+  BLOB_SIZE_512 = 512,
+  BLOB_SIZE_1024 = 1024,
+  BLOB_SIZE_MAX = BLOB_SIZE_1024,
 } BLOB_SIZE;
 
 typedef struct {
   u8 version;
-  // Size of the blob_size. This is an enum.
+  // Size of the blob_size.
   u8 blob_size;
   // Size of the effective data in the blob.
   u16 data_size;

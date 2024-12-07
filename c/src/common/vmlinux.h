@@ -161,6 +161,7 @@ struct linux_binprm {
   struct cred *cred;
   int argc;
   int envc;
+  struct mm_struct *mm;
   const char * filename;
   const char * interp;
 };

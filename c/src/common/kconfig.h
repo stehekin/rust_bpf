@@ -1,4 +1,4 @@
-#ifndef _LW_KCONFIG_H_
-#define _LW_KCONFIG_H_
+#ifndef __LW_KCONFIG_H__
+#define __LW_KCONFIG_H__
 
 #endif

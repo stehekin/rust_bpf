@@ -1,5 +1,5 @@
-#ifndef _LW_BPRM_H_
-#define _LW_BPRM_H_
+#ifndef __LW_BPRM_H__
+#define __LW_BPRM_H__
 
 #include <linux/bpf.h>
 #include <linux/types.h>
