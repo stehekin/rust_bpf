@@ -1,4 +1,5 @@
 #include "common/int_types.h"
+#include "common/signals.h"
 #include "common/str.h"
 #include "common/types.h"
 #include "common/vmlinux.h"
@@ -51,5 +52,6 @@ int BPF_PROG(sched_process_exec, struct task_struct *_ignore, pid_t old_pid, str
   copy_str_blobstr(&exec->filename, BPF_CORE_READ(bprm, filename));
   copy_str_blobstr(&exec->interp, (void *)BPF_CORE_READ(bprm, interp));
 
+  submit_task(task);
   return 0;
 }
