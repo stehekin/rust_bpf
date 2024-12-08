@@ -1,5 +1,8 @@
-#ifndef _LW_BLOB_H_
-#define _LW_BLOB_H_
+#ifndef __LW_BLOB_H__
+#define __LW_BLOB_H__
+
+#include "int_types.h"
+#include "types.h"
 
 #include <linux/bpf.h>
 #include <linux/types.h>
@@ -9,9 +12,6 @@
 #include <bpf_endian.h>
 #include <bpf_helpers.h>
 #include <bpf_tracing.h>
-
-#include "int_types.h"
-#include "types.h"
 
 #define BLOB_MAP_ENTRIES 1024 * BLOB_SIZE_MAX
 
@@ -36,40 +36,6 @@ static inline u64 create_blob_id(u64 v) {
   u64 result =  (v & 0x0000FFFFFFFFFFFF) | (cpu_id << 48);
   return result;
 }
-
-// static inline BLOB_SIZE to_blob_size(long data_len, u16 *size) {
-//     BLOB_SIZE blob_size = SIZE_256;
-//     *size = 256;
-
-//     if (data_len > BLOB_SIZE_512 - sizeof(lw_blob)) {
-//       blob_size = SIZE_1024;
-//       *size = 1024;
-//     } else if (data_len > BLOB_SIZE_256 - sizeof(lw_blob)) {
-//       blob_size = SIZE_512;
-//       *size = 512;
-//     }
-
-//     return blob_size;
-// }
-
-// static inline u16 from_blob_size(BLOB_SIZE blob_size) {
-//     u16 size = 0;
-//     switch(blob_size) {
-//       case SIZE_256: {
-//         size = BLOB_SIZE_256;
-//         break;
-//       }
-//       case SIZE_512: {
-//         size = BLOB_SIZE_512;
-//         break;
-//       }
-//       case SIZE_1024: {
-//         size = BLOB_SIZE_1024;
-//         break;
-//       }
-//     }
-//     return size;
-// }
 
 static void* reserve_blob(BLOB_SIZE blob_size) {
   u32 zero = 0;
@@ -114,7 +80,6 @@ static void* reserve_blob(BLOB_SIZE blob_size) {
 }
 
 static inline void submit_blob(lw_blob *blob) {
-  bpf_printk(">>%d<<", blob->data_size);
   bpf_ringbuf_submit(blob, 0);
 }
 

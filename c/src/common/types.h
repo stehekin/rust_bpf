@@ -22,7 +22,7 @@ typedef struct {
   u8 blob_size;
   // Size of the effective data in the blob.
   u16 data_size;
-  u32 reserved;
+  u32 _reserved;
   u64 blob_id;
   u64 blob_next;
   u8 data[0];
@@ -37,15 +37,21 @@ typedef struct {
 
 typedef struct {
   u32 pid;
-  u32 tgid;
-  u64 start_boottime_ns;
-  u32 ppid;
-  u32 rpid;
-  // `str_flag` determines if filename and interp are blob ids or strings.
-  u64 str_flag;
+  u32 pid_vnr;
+  u32 pid_ns;
+  u32 _reserved;
+} pid;
+
+typedef struct {
   u8 filename[MAX_FILENAME];
   u8 interp[MAX_FILENAME];
-  u8 pwd[MAX_FILENAME];
+  u64 env;
+} exec;
+
+typedef struct {
+  lw_creds creds;
+  pid pid;
+  exec exec;
 } lw_task;
 
 #endif
