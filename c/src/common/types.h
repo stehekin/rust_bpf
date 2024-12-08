@@ -7,7 +7,7 @@
 #include "int_types.h"
 
 // Trailing NULL included.
-#define MAX_FILENAME 128
+#define BLOBSTR_LEN 128
 
 typedef enum  {
   BLOB_SIZE_256 = 256,
@@ -39,19 +39,27 @@ typedef struct {
   u32 pid;
   u32 pid_vnr;
   u32 pid_ns;
-  u32 _reserved;
-} pid;
+  u32 session_id;
+} lw_proc;
+
+typedef union {
+  u8 str[BLOBSTR_LEN];
+  struct {
+    u64 blob_id;
+    u64 flag;
+  } blob;
+} lw_blobstr;
 
 typedef struct {
-  u8 filename[MAX_FILENAME];
-  u8 interp[MAX_FILENAME];
+  lw_blobstr filename;
+  lw_blobstr interp;
   u64 env;
-} exec;
+} lw_exec;
 
 typedef struct {
   lw_creds creds;
-  pid pid;
-  exec exec;
+  lw_proc pid;
+  lw_exec exec;
 } lw_task;
 
 #endif

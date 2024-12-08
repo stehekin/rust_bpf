@@ -33,6 +33,10 @@ typedef __u64 u64;
 
 typedef __u32 __wsum;
 
+typedef int __kernel_pid_t;
+
+typedef __kernel_pid_t pid_t;
+
 typedef enum {
   false = 0,
   true = 1

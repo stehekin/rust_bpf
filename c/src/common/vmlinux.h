@@ -143,6 +143,7 @@ struct dentry {
     struct hlist_node d_alias;
   } d_u;
 };
+
 struct path {
   struct vfsmount *mnt;
   struct dentry *dentry;
