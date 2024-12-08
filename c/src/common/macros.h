@@ -18,11 +18,6 @@
 
 #define TASK_COMM_LEN 16
 
-#ifndef likely
-    #define likely(x) __builtin_expect((x), 1)
-#endif
-#ifndef unlikely
-    #define unlikely(x) __builtin_expect((x), 0)
-#endif
+#define KTIME_NS() bpf_ktime_get_boot_ns()
 
 #endif

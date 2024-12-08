@@ -4,6 +4,7 @@
 #include "common/vmlinux.h"
 #include "common/task.h"
 #include "common/blob.h"
+#include "common/maps.h"
 
 #include <linux/bpf.h>
 #include <linux/types.h>
@@ -16,13 +17,6 @@
 
 char _license[] SEC("license") = "GPL";
 
-struct {
-  __uint(type, BPF_MAP_TYPE_TASK_STORAGE);
-  __uint(map_flags, BPF_F_NO_PREALLOC);
-  __type(key, u32);
-  __type(value, lw_task);
-} _lw_task_storage SEC(".maps");
-
 static s32 copy_str_blobstr(lw_blobstr *dest, const char *src) {
   s32 result = copy_str(dest->str, BLOBSTR_LEN , src, 0, false);
   if (result < -1) {
@@ -30,7 +24,7 @@ static s32 copy_str_blobstr(lw_blobstr *dest, const char *src) {
   }
 
   if (result == 1) {
-    dest->blob.flag = -1;
+    dest->blob.flag = 0;
     result = copy_str_to_blob(src, &dest->blob.blob_id, 0, BLOB_SIZE_256, false);
     if (result < 0) {
       dest->blob.blob_id = 0;
@@ -51,9 +45,11 @@ int BPF_PROG(sched_process_exec, struct task_struct *_ignore, pid_t old_pid, str
   }
 
   get_task_creds(current, &task->creds);
+  get_task_proc(current, &task->pid);
 
   lw_exec *exec = &task->exec;
   copy_str_blobstr(&exec->filename, BPF_CORE_READ(bprm, filename));
   copy_str_blobstr(&exec->interp, (void *)BPF_CORE_READ(bprm, interp));
+
   return 0;
 }

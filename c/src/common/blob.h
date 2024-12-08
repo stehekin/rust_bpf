@@ -1,8 +1,9 @@
 #ifndef __LW_BLOB_H__
 #define __LW_BLOB_H__
 
-#include "int_types.h"
-#include "types.h"
+#include "common/int_types.h"
+#include "common/types.h"
+#include "common/maps.h"
 
 #include <linux/bpf.h>
 #include <linux/types.h>
@@ -13,24 +14,7 @@
 #include <bpf_helpers.h>
 #include <bpf_tracing.h>
 
-#define BLOB_MAP_ENTRIES 1024 * BLOB_SIZE_MAX
 #define MAX_BLOBS 16
-
-// `_blob_index_` is a per cpu array that saves the next blob id.
-// Blob is a 64-bit integer, with the first 16 bits as the cpu_id.
-// So the max cpu number supported is 2^16 ;-)
-struct {
-  __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-  __type(key, u32);
-  __type(value, u64);
-  __uint(max_entries, 1);
-} _blob_index_ SEC(".maps");
-
-struct {
-  __uint(type, BPF_MAP_TYPE_RINGBUF);
-  __uint(max_entries, BLOB_MAP_ENTRIES);
-} _blob_ringbuf_ SEC(".maps");
-
 
 static inline u64 create_blob_id(u64 v) {
   u64 cpu_id = bpf_get_smp_processor_id();

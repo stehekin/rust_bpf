@@ -37,16 +37,17 @@ typedef struct {
 
 typedef struct {
   u32 pid;
-  u32 pid_vnr;
+  u32 tgid;
   u32 pid_ns;
-  u32 session_id;
-} lw_proc;
+  u32 pid_vnr;
+} lw_pid;
 
 typedef union {
   u8 str[BLOBSTR_LEN];
   struct {
-    u64 blob_id;
+    // blob_id is only effective when flag is 0.
     u64 flag;
+    u64 blob_id;
   } blob;
 } lw_blobstr;
 
@@ -58,8 +59,27 @@ typedef struct {
 
 typedef struct {
   lw_creds creds;
-  lw_proc pid;
+  lw_pid pid;
   lw_exec exec;
 } lw_task;
+
+// signals sent to user space.
+
+typedef enum {
+  LW_SIGNAL_TASK = 1,
+} lw_signal_type;
+
+typedef struct {
+  u8 version;
+  u8 signal_type;
+  u16 cpu_id;
+  u32 reserved;
+  u64 submit_time_ns;
+} lw_sigal_header;
+
+typedef struct {
+  lw_sigal_header header;
+  lw_task body;
+} lw_signal_task;
 
 #endif
