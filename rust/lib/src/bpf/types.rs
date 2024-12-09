@@ -30,21 +30,30 @@ impl<T> ::std::fmt::Debug for __IncompleteArrayField<T> {
         fmt.write_str("__IncompleteArrayField")
     }
 }
-pub const MAX_FILENAME: u32 = 128;
-pub const BLOB_SIZE_SIZE_256: BLOB_SIZE = 0;
-pub const BLOB_SIZE_SIZE_512: BLOB_SIZE = 1;
-pub const BLOB_SIZE_SIZE_1024: BLOB_SIZE = 2;
+pub const BLOBSTR_LEN: u32 = 128;
+pub type __u8 = ::std::os::raw::c_uchar;
+pub type __u16 = ::std::os::raw::c_ushort;
+pub type __u32 = ::std::os::raw::c_uint;
+pub type __u64 = ::std::os::raw::c_ulonglong;
+pub type u8_ = __u8;
+pub type u16_ = __u16;
+pub type u32_ = __u32;
+pub type u64_ = __u64;
+pub const BLOB_SIZE_BLOB_SIZE_256: BLOB_SIZE = 256;
+pub const BLOB_SIZE_BLOB_SIZE_512: BLOB_SIZE = 512;
+pub const BLOB_SIZE_BLOB_SIZE_1024: BLOB_SIZE = 1024;
+pub const BLOB_SIZE_BLOB_SIZE_MAX: BLOB_SIZE = 1024;
 pub type BLOB_SIZE = ::std::os::raw::c_uint;
 #[repr(C)]
 #[derive(Debug, Default)]
 pub struct lw_blob {
-    pub version: u8,
-    pub blob_size: u8,
-    pub data_size: u16,
-    pub reserved: u32,
-    pub blob_id: u64,
-    pub blob_next: u64,
-    pub data: __IncompleteArrayField<u8>,
+    pub version: u8_,
+    pub blob_size: u8_,
+    pub data_size: u16_,
+    pub _reserved: u32_,
+    pub blob_id: u64_,
+    pub blob_next: u64_,
+    pub data: __IncompleteArrayField<u8_>,
 }
 #[test]
 fn bindgen_test_layout_lw_blob() {
@@ -91,13 +100,13 @@ fn bindgen_test_layout_lw_blob() {
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).reserved) as usize - ptr as usize },
+        unsafe { ::std::ptr::addr_of!((*ptr)._reserved) as usize - ptr as usize },
         4usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_blob),
             "::",
-            stringify!(reserved)
+            stringify!(_reserved)
         )
     );
     assert_eq!(
@@ -134,10 +143,10 @@ fn bindgen_test_layout_lw_blob() {
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
 pub struct lw_creds {
-    pub uid: u32,
-    pub gid: u32,
-    pub euid: u32,
-    pub egid: u32,
+    pub uid: u32_,
+    pub gid: u32_,
+    pub euid: u32_,
+    pub egid: u32_,
 }
 #[test]
 fn bindgen_test_layout_lw_creds() {
@@ -195,37 +204,33 @@ fn bindgen_test_layout_lw_creds() {
     );
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct lw_task {
-    pub pid: u32,
-    pub tgid: u32,
-    pub start_boottime: u64,
-    pub ppid: u32,
-    pub rpid: u32,
-    pub str_flag: u64,
-    pub filename: [u8; 128usize],
-    pub interp: [u8; 128usize],
+#[derive(Debug, Default, Copy, Clone)]
+pub struct lw_pid {
+    pub pid: u32_,
+    pub tgid: u32_,
+    pub pid_ns: u32_,
+    pub pid_vnr: u32_,
 }
 #[test]
-fn bindgen_test_layout_lw_task() {
-    const UNINIT: ::std::mem::MaybeUninit<lw_task> = ::std::mem::MaybeUninit::uninit();
+fn bindgen_test_layout_lw_pid() {
+    const UNINIT: ::std::mem::MaybeUninit<lw_pid> = ::std::mem::MaybeUninit::uninit();
     let ptr = UNINIT.as_ptr();
     assert_eq!(
-        ::std::mem::size_of::<lw_task>(),
-        288usize,
-        concat!("Size of: ", stringify!(lw_task))
+        ::std::mem::size_of::<lw_pid>(),
+        16usize,
+        concat!("Size of: ", stringify!(lw_pid))
     );
     assert_eq!(
-        ::std::mem::align_of::<lw_task>(),
-        8usize,
-        concat!("Alignment of ", stringify!(lw_task))
+        ::std::mem::align_of::<lw_pid>(),
+        4usize,
+        concat!("Alignment of ", stringify!(lw_pid))
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).pid) as usize - ptr as usize },
         0usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_task),
+            stringify!(lw_pid),
             "::",
             stringify!(pid)
         )
@@ -235,69 +240,234 @@ fn bindgen_test_layout_lw_task() {
         4usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_task),
+            stringify!(lw_pid),
             "::",
             stringify!(tgid)
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).start_boottime) as usize - ptr as usize },
+        unsafe { ::std::ptr::addr_of!((*ptr).pid_ns) as usize - ptr as usize },
         8usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_task),
+            stringify!(lw_pid),
             "::",
-            stringify!(start_boottime)
+            stringify!(pid_ns)
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).ppid) as usize - ptr as usize },
+        unsafe { ::std::ptr::addr_of!((*ptr).pid_vnr) as usize - ptr as usize },
+        12usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_pid),
+            "::",
+            stringify!(pid_vnr)
+        )
+    );
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union lw_blobstr {
+    pub str_: [u8_; 128usize],
+    pub blob: lw_blobstr__bindgen_ty_1,
+}
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone)]
+pub struct lw_blobstr__bindgen_ty_1 {
+    pub flag: u64_,
+    pub blob_id: u64_,
+}
+#[test]
+fn bindgen_test_layout_lw_blobstr__bindgen_ty_1() {
+    const UNINIT: ::std::mem::MaybeUninit<lw_blobstr__bindgen_ty_1> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<lw_blobstr__bindgen_ty_1>(),
         16usize,
+        concat!("Size of: ", stringify!(lw_blobstr__bindgen_ty_1))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<lw_blobstr__bindgen_ty_1>(),
+        8usize,
+        concat!("Alignment of ", stringify!(lw_blobstr__bindgen_ty_1))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).flag) as usize - ptr as usize },
+        0usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_task),
+            stringify!(lw_blobstr__bindgen_ty_1),
             "::",
-            stringify!(ppid)
+            stringify!(flag)
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).rpid) as usize - ptr as usize },
-        20usize,
+        unsafe { ::std::ptr::addr_of!((*ptr).blob_id) as usize - ptr as usize },
+        8usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_task),
+            stringify!(lw_blobstr__bindgen_ty_1),
             "::",
-            stringify!(rpid)
+            stringify!(blob_id)
+        )
+    );
+}
+#[test]
+fn bindgen_test_layout_lw_blobstr() {
+    const UNINIT: ::std::mem::MaybeUninit<lw_blobstr> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<lw_blobstr>(),
+        128usize,
+        concat!("Size of: ", stringify!(lw_blobstr))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<lw_blobstr>(),
+        8usize,
+        concat!("Alignment of ", stringify!(lw_blobstr))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).str_) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_blobstr),
+            "::",
+            stringify!(str_)
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).str_flag) as usize - ptr as usize },
-        24usize,
+        unsafe { ::std::ptr::addr_of!((*ptr).blob) as usize - ptr as usize },
+        0usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_task),
+            stringify!(lw_blobstr),
             "::",
-            stringify!(str_flag)
+            stringify!(blob)
         )
+    );
+}
+impl Default for lw_blobstr {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct lw_exec {
+    pub filename: lw_blobstr,
+    pub interp: lw_blobstr,
+    pub env: u64_,
+}
+#[test]
+fn bindgen_test_layout_lw_exec() {
+    const UNINIT: ::std::mem::MaybeUninit<lw_exec> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<lw_exec>(),
+        264usize,
+        concat!("Size of: ", stringify!(lw_exec))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<lw_exec>(),
+        8usize,
+        concat!("Alignment of ", stringify!(lw_exec))
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).filename) as usize - ptr as usize },
-        32usize,
+        0usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_task),
+            stringify!(lw_exec),
             "::",
             stringify!(filename)
         )
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).interp) as usize - ptr as usize },
-        160usize,
+        128usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_exec),
+            "::",
+            stringify!(interp)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).env) as usize - ptr as usize },
+        256usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_exec),
+            "::",
+            stringify!(env)
+        )
+    );
+}
+impl Default for lw_exec {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct lw_task {
+    pub creds: lw_creds,
+    pub pid: lw_pid,
+    pub exec: lw_exec,
+}
+#[test]
+fn bindgen_test_layout_lw_task() {
+    const UNINIT: ::std::mem::MaybeUninit<lw_task> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<lw_task>(),
+        296usize,
+        concat!("Size of: ", stringify!(lw_task))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<lw_task>(),
+        8usize,
+        concat!("Alignment of ", stringify!(lw_task))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).creds) as usize - ptr as usize },
+        0usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_task),
             "::",
-            stringify!(interp)
+            stringify!(creds)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).pid) as usize - ptr as usize },
+        16usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_task),
+            "::",
+            stringify!(pid)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).exec) as usize - ptr as usize },
+        32usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_task),
+            "::",
+            stringify!(exec)
         )
     );
 }
@@ -310,46 +480,59 @@ impl Default for lw_task {
         }
     }
 }
-#[doc = " Signal definitions."]
+pub const lw_signal_type_LW_SIGNAL_TASK: lw_signal_type = 1;
+pub type lw_signal_type = ::std::os::raw::c_uint;
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
-pub struct lw_signal_header {
-    pub version: u16,
-    pub type_: u16,
-    pub reserved: u32,
+pub struct lw_sigal_header {
+    pub version: u8_,
+    pub signal_type: u8_,
+    pub cpu_id: u16_,
+    pub reserved: u32_,
+    pub submit_time_ns: u64_,
 }
 #[test]
-fn bindgen_test_layout_lw_signal_header() {
-    const UNINIT: ::std::mem::MaybeUninit<lw_signal_header> = ::std::mem::MaybeUninit::uninit();
+fn bindgen_test_layout_lw_sigal_header() {
+    const UNINIT: ::std::mem::MaybeUninit<lw_sigal_header> = ::std::mem::MaybeUninit::uninit();
     let ptr = UNINIT.as_ptr();
     assert_eq!(
-        ::std::mem::size_of::<lw_signal_header>(),
-        8usize,
-        concat!("Size of: ", stringify!(lw_signal_header))
+        ::std::mem::size_of::<lw_sigal_header>(),
+        16usize,
+        concat!("Size of: ", stringify!(lw_sigal_header))
     );
     assert_eq!(
-        ::std::mem::align_of::<lw_signal_header>(),
-        4usize,
-        concat!("Alignment of ", stringify!(lw_signal_header))
+        ::std::mem::align_of::<lw_sigal_header>(),
+        8usize,
+        concat!("Alignment of ", stringify!(lw_sigal_header))
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).version) as usize - ptr as usize },
         0usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_signal_header),
+            stringify!(lw_sigal_header),
             "::",
             stringify!(version)
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).type_) as usize - ptr as usize },
+        unsafe { ::std::ptr::addr_of!((*ptr).signal_type) as usize - ptr as usize },
+        1usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_sigal_header),
+            "::",
+            stringify!(signal_type)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).cpu_id) as usize - ptr as usize },
         2usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_signal_header),
+            stringify!(lw_sigal_header),
             "::",
-            stringify!(type_)
+            stringify!(cpu_id)
         )
     );
     assert_eq!(
@@ -357,18 +540,27 @@ fn bindgen_test_layout_lw_signal_header() {
         4usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_signal_header),
+            stringify!(lw_sigal_header),
             "::",
             stringify!(reserved)
         )
     );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).submit_time_ns) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_sigal_header),
+            "::",
+            stringify!(submit_time_ns)
+        )
+    );
 }
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct lw_signal_task {
-    pub header: lw_signal_header,
-    pub creds: lw_creds,
-    pub task: lw_task,
+    pub header: lw_sigal_header,
+    pub body: lw_task,
 }
 #[test]
 fn bindgen_test_layout_lw_signal_task() {
@@ -395,23 +587,13 @@ fn bindgen_test_layout_lw_signal_task() {
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).creds) as usize - ptr as usize },
-        8usize,
+        unsafe { ::std::ptr::addr_of!((*ptr).body) as usize - ptr as usize },
+        16usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_signal_task),
             "::",
-            stringify!(creds)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).task) as usize - ptr as usize },
-        24usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lw_signal_task),
-            "::",
-            stringify!(task)
+            stringify!(body)
         )
     );
 }

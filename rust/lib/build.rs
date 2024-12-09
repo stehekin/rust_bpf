@@ -17,8 +17,7 @@ fn build_bpf(c_bpf_dir: &str) {
     ];
 
     let bpfs = vec![
-        "file_open",
-        "bprm_committed_creds",
+        "sched_process_exec",
     ];
 
     for bpf in bpfs {

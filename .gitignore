@@ -1,4 +1,6 @@
 rust/lib/src/bpf/file_open.rs
+rust/lib/src/bpf/bprm_committed_creds.rs
+rust/lib/src/bpf/sched_process_exec.rs
 rust/target
 c/build
 c/.cache 

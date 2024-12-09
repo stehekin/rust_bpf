@@ -7,7 +7,6 @@ const BLOB_SIZE_MAX: usize = 1024;
 pub struct lw_blob_with_data {
     pub header: lw_blob,
     // The maximum size of `lw_blob` is 1024 in the ebpf, which includes `header`.
-    // So the `lw_blob_complete` defined in the rust should be large enough to hold all `lw_blob`s
     pub data: [u8; BLOB_SIZE_MAX],
 }
 
