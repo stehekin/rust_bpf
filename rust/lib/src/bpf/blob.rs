@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
-use async_channel::Receiver;
+use async_channel::{Receiver, bounded, Sender};
 use anyhow::{bail, Result};
 use crate::bpf::types_conv::lw_blob_with_data;
+
+const CHANNEL_CAPACITY: usize = 256;
 
 pub(crate) fn blob_id_to_seq(blob_id: u64) -> (usize, u64) {
     (((blob_id & 0xFFFF000000000000) >> 48) as usize, blob_id & 0x0000FFFFFFFFFFFF)
@@ -65,26 +67,34 @@ impl BlobReader {
 }
 
 pub(crate) struct BlobManager {
-    blob_queues: Vec<VecDeque<lw_blob_with_data>>,
+    receivers: Vec<BlobReader>,
+    senders: Vec<Sender<lw_blob_with_data>>,
 }
 
 impl Default for BlobManager {
     fn default() -> Self {
+        let cpus = num_cpus::get();
+
         let mut bm = Self {
-            blob_queues: vec![],
+            receivers: Vec::with_capacity(cpus),
+            senders: Vec::with_capacity(cpus),
         };
-        for _ in 0..num_cpus::get() {
-            bm.blob_queues.push(VecDeque::new());
+
+        for i in 0..cpus {
+            let (sender, receiver) = async_channel::bounded(CHANNEL_CAPACITY);
+            bm.receivers.push(BlobReader::new(i, receiver));
+            bm.senders.push(sender);
         }
+
         bm
-    }    
+    }
 }
 
 impl BlobManager {
-    pub(crate) fn add(&mut self, blob: lw_blob_with_data) {
+    pub(crate) async fn add(&mut self, blob: lw_blob_with_data) -> () {
         let (cpu, sequence) = blob_id_to_seq(blob.header.blob_id);
-        let mut blob_queue = &mut self.blob_queues[cpu];
-        blob_queue.push_back(blob);
+        let sender = &self.senders[cpu];
+        sender.send(blob).await?
     }
 
     // `get` finds the blob with the given blob_id in the blob_queues.
@@ -92,7 +102,7 @@ impl BlobManager {
     // It works as in the user space signals emitted from a same CPU are handled in order.
     pub(crate) fn get(&mut self, blob_id: u64) ->Option<lw_blob_with_data> {
         let (cpu, sequence) = blob_id_to_seq(blob_id);
-        let queue = &mut self.blob_queues[cpu];
+        let queue = &self.blob_queues[cpu];
 
         while let Some(found) = queue.pop_front() {
             if found.header.blob_id == blob_id {
