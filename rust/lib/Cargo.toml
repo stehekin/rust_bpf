@@ -18,5 +18,5 @@ libbpf-rs = "0.24"
 libbpf-sys = "1.5"
 num_cpus = "1"
 plain = "0.2"
-tokio = { version = "1.4", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.4", features = ["rt-multi-thread", "macros", "time"] }
 rand = "0.9.0-beta.1"
