@@ -2,7 +2,7 @@ use std::time;
 use rand::Rng;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
-use crate::bpf::blob::{BlobManager, BlobReader, seq_to_blob_id};
+use crate::bpf::blob::{BlobReader, seq_to_blob_id};
 use crate::bpf::types_conv::lw_blob_with_data;
 
 // `fake_blob` returns a blob with given blob id. Other properties of the given blob are undetermined.
@@ -13,7 +13,7 @@ fn fake_blob(cpu: usize, sequence: u64) -> lw_blob_with_data {
 }
 
 #[tokio::test]
-async fn test_blob_reader_get() {
+async fn test_blob_reader() {
     let (sender, receiver) = async_channel::unbounded();
     let cpu_id = 3;
     let max_seq = 1024;
@@ -21,7 +21,7 @@ async fn test_blob_reader_get() {
 
     let r= tokio::spawn(async move {
         let mut reader = BlobReader::new(cpu_id, receiver);
-        reader.get(blob_id).await.expect("")
+        reader.retrieve(blob_id).await.expect("")
     });
 
     sleep(time::Duration::from_secs(5));
@@ -34,23 +34,4 @@ async fn test_blob_reader_get() {
 
     w.await.expect("channel write error");
     assert_eq!(r.await.expect("channel read error").unwrap().header.blob_id, blob_id);
-}
-
-#[test]
-fn test_blob_manager() {
-    let cpus = num_cpus::get();
-    let mut bm = BlobManager::default();
-    for cpu in 0..cpus {
-        for seq in 0..100 - cpu {
-            bm.add(fake_blob(cpu, seq as u64));
-        }
-    }
-
-    for cpu in 0..cpus {
-        for seq in 0..100 - cpu {
-            let blob_id = seq_to_blob_id(cpu, seq as u64);
-            assert!(bm.get(blob_id).is_some());
-            assert!(bm.get(blob_id).is_none());
-        }
-    }
 }

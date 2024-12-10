@@ -29,7 +29,7 @@ impl BlobReader {
         }
     }
 
-    fn help_get(&mut self, seq: u64) -> Option<lw_blob_with_data> {
+    fn help_retrieve(&mut self, seq: u64) -> Option<lw_blob_with_data> {
         if let Some(blob) = &self.sentry {
             let (_, s) = blob_id_to_seq(blob.header.blob_id);
             if s == seq {
@@ -44,7 +44,7 @@ impl BlobReader {
             None
         }
     }
-    pub(crate) async fn get(&mut self, blob_id: u64) -> Result<Option<lw_blob_with_data>> {
+    pub(crate) async fn retrieve(&mut self, blob_id: u64) -> Result<Option<lw_blob_with_data>> {
         let (cpu, seq) = blob_id_to_seq(blob_id);
         if cpu != self.cpu_id {
             bail!("incorrect cpu id");
@@ -54,7 +54,7 @@ impl BlobReader {
                 self.sentry = Some(self.receiver.recv().await?);
             }
 
-            let blob = self.help_get(seq);
+            let blob = self.help_retrieve(seq);
             if blob.is_none() {
                 if self.sentry.is_some() {
                     return Ok(None)
@@ -63,55 +63,5 @@ impl BlobReader {
                 return Ok(blob)
             }
         }
-    }
-}
-
-pub(crate) struct BlobManager {
-    receivers: Vec<BlobReader>,
-    senders: Vec<Sender<lw_blob_with_data>>,
-}
-
-impl Default for BlobManager {
-    fn default() -> Self {
-        let cpus = num_cpus::get();
-
-        let mut bm = Self {
-            receivers: Vec::with_capacity(cpus),
-            senders: Vec::with_capacity(cpus),
-        };
-
-        for i in 0..cpus {
-            let (sender, receiver) = async_channel::bounded(CHANNEL_CAPACITY);
-            bm.receivers.push(BlobReader::new(i, receiver));
-            bm.senders.push(sender);
-        }
-
-        bm
-    }
-}
-
-impl BlobManager {
-    pub(crate) async fn add(&mut self, blob: lw_blob_with_data) -> () {
-        let (cpu, sequence) = blob_id_to_seq(blob.header.blob_id);
-        let sender = &self.senders[cpu];
-        sender.send(blob).await?
-    }
-
-    // `get` finds the blob with the given blob_id in the blob_queues.
-    // During the search, blobs that sent earlier than the given blob in the same CPU queue are discarded.
-    // It works as in the user space signals emitted from a same CPU are handled in order.
-    pub(crate) fn get(&mut self, blob_id: u64) ->Option<lw_blob_with_data> {
-        let (cpu, sequence) = blob_id_to_seq(blob_id);
-        let queue = &self.blob_queues[cpu];
-
-        while let Some(found) = queue.pop_front() {
-            if found.header.blob_id == blob_id {
-                return Some(found);
-            } else if found.header.blob_id > blob_id {
-                queue.push_front(found);
-                break;
-            }
-        }
-        None
     }
 }
