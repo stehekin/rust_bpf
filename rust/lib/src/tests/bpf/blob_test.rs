@@ -9,7 +9,7 @@ use crate::bpf::types_conv::lw_blob_with_data;
 fn fake_blob(cpu: usize, sequence: u64, next: u64, data: Option<&[u8]>) -> lw_blob_with_data {
     let mut blob = lw_blob_with_data::default();
     blob.header.blob_id = seq_to_blob_id(cpu, sequence);
-    blob.header.blob_next = seq_to_blob_id(cpu, sequence);
+    blob.header.blob_next = seq_to_blob_id(cpu, next);
 
     if let Some(data) = data {
         blob.header.data_size = data.len() as u16;
@@ -35,7 +35,7 @@ async fn test_blob_reader() {
 
     let w = tokio::spawn(async move {
         for seq in 0..max_seq {
-            sender.send(fake_blob(3, seq, 0, None)).await;
+            sender.send(fake_blob(3, seq, 0, None)).await.expect("error sending blob");
         }
     });
 
@@ -46,7 +46,7 @@ async fn test_blob_reader() {
 #[tokio::test]
 async fn test_blob_reader_merge() {
     let (sender, receiver) = async_channel::unbounded();
-    let cpu = 3;
+    let cpu = 0;
     let seq = 2;
     let data = "012345678".as_bytes();
 
@@ -61,9 +61,9 @@ async fn test_blob_reader_merge() {
     sleep(time::Duration::from_secs(2));
 
     let w = tokio::spawn(async move {
-        sender.send(fake_blob(cpu, seq, 9, Some(&data[0..1])));
-        sender.send(fake_blob(cpu, 9, 11, Some(&data[1..6])));
-        sender.send(fake_blob(cpu, 11, 0, Some(&data[6..data.len()])));
+        sender.send(fake_blob(cpu, seq, 9, Some(&data[0..1]))).await.expect("error sending blob");
+        sender.send(fake_blob(cpu, 9, 11, Some(&data[1..6]))).await.expect("error sending blob");
+        sender.send(fake_blob(cpu, 11, 0, Some(&data[6..data.len()]))).await.expect("error sending blob");
     });
 
     w.await.expect("error channel writing");

@@ -80,7 +80,7 @@ pub(crate) async fn merge_blobs(blob_id: u64, buffer: &mut Vec<u8>, retriever: &
             buffer.extend_from_slice(&blob.data[..blob.header.data_size as usize]);
             blob_id = blob.header.blob_next;
         } else {
-            bail!("required blob is missing")
+            bail!("required blob with id {0} is missing", blob_id)
         }
     }
 }
