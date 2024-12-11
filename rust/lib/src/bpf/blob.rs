@@ -5,6 +5,25 @@ use crate::bpf::types_conv::lw_blob_with_data;
 
 const CHANNEL_CAPACITY: usize = 256;
 
+// `merge_blobs` combines the data of blobs. It returns
+// * Ok is all data are copied successfully;
+// * Error if data are copied partially;
+pub(crate) async fn merge_blobs(blob_id: u64, buffer: &mut Vec<u8>, retriever: &mut BlobReceiver) -> Result<()> {
+    let mut blob_id = blob_id;
+    loop {
+        if blob_id == 0 {
+            return Ok(())
+        }
+
+        if let Some(blob) = retriever.retrieve(blob_id).await.context("error retrieving blob")? {
+            buffer.extend_from_slice(&blob.data[..blob.header.data_size as usize]);
+            blob_id = blob.header.blob_next;
+        } else {
+            bail!("required blob with id {0} is missing", blob_id)
+        }
+    }
+}
+
 pub(crate) fn blob_id_to_seq(blob_id: u64) -> (usize, u64) {
     (((blob_id & 0xFFFF000000000000) >> 48) as usize, blob_id & 0x0000FFFFFFFFFFFF)
 }
@@ -66,21 +85,53 @@ impl BlobReceiver {
     }
 }
 
-// `merge_blobs` combines the data of blobs. It returns
-// * Ok is all data are copied successfully;
-// * Error if data are copied partially;
-pub(crate) async fn merge_blobs(blob_id: u64, buffer: &mut Vec<u8>, retriever: &mut BlobReceiver) -> Result<()> {
-    let mut blob_id = blob_id;
-    loop {
-        if blob_id == 0 {
-            return Ok(())
-        }
+pub(crate) struct BlobReceiverGroup {
+    receivers: Vec<BlobReceiver>,
+}
 
-        if let Some(blob) = retriever.retrieve(blob_id).await.context("error retrieving blob")? {
-            buffer.extend_from_slice(&blob.data[..blob.header.data_size as usize]);
-            blob_id = blob.header.blob_next;
+impl BlobReceiverGroup {
+    pub(crate) fn new(receivers: Vec<BlobReceiver>) -> Self {
+        Self { receivers }
+    }
+    pub(crate) async fn retrieve(&mut self, blob_id: u64) -> Result<Option<lw_blob_with_data>> {
+        let (cpu, _) = blob_id_to_seq(blob_id);
+        if let Some(mut r) = self.receivers.get_mut(cpu) {
+            r.retrieve(blob_id).await
         } else {
-            bail!("required blob with id {0} is missing", blob_id)
+            bail!("invalid cpu id {0}", cpu)
         }
     }
+}
+
+pub(crate) struct BlobSenderGroup {
+    senders: Vec<Sender<lw_blob_with_data>>,
+}
+
+impl BlobSenderGroup {
+    pub(crate) fn new(senders: Vec<Sender<lw_blob_with_data>>) -> Self {
+        Self { senders }
+    }
+
+    pub(crate) async fn send(&self, lw_blob_with_data: lw_blob_with_data) -> Result<()> {
+        let (cpu, _) = blob_id_to_seq(lw_blob_with_data.header.blob_id);
+        if let Some(s) = self.senders.get(cpu) {
+            s.send(lw_blob_with_data).await.context("error sending blob data")
+        } else {
+            bail!("invalid cpu id {0}", cpu)
+        }
+    }
+}
+
+fn blob_channel_groups() -> (BlobSenderGroup, BlobReceiverGroup) {
+    let cpu_num = num_cpus::get();
+    let mut receivers = Vec::new();
+    let mut senders = Vec::new();
+
+    for cpu in 0..cpu_num {
+        let (s, r) = async_channel::bounded(CHANNEL_CAPACITY);
+        receivers.push(BlobReceiver::new(cpu, r));
+        senders.push(s)
+    }
+
+    (BlobSenderGroup::new(senders), BlobReceiverGroup::new(receivers))
 }
