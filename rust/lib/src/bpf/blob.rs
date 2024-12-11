@@ -13,7 +13,7 @@ pub(crate) async fn merge_blobs(blob_id: u64, buffer: &mut Vec<u8>, retriever: &
     loop {
         let (_, seq) = blob_id_to_seq(blob_id);
         if seq == 0 {
-            return Ok(())
+            return Ok(());
         }
 
         if let Some(blob) = retriever.retrieve(blob_id).await.context("error retrieving blob")? {
