@@ -11,7 +11,8 @@ const CHANNEL_CAPACITY: usize = 256;
 pub(crate) async fn merge_blobs(blob_id: u64, buffer: &mut Vec<u8>, retriever: &mut BlobReceiver) -> Result<()> {
     let mut blob_id = blob_id;
     loop {
-        if blob_id == 0 {
+        let (_, seq) = blob_id_to_seq(blob_id);
+        if seq == 0 {
             return Ok(())
         }
 
@@ -24,10 +25,12 @@ pub(crate) async fn merge_blobs(blob_id: u64, buffer: &mut Vec<u8>, retriever: &
     }
 }
 
+#[inline]
 pub(crate) fn blob_id_to_seq(blob_id: u64) -> (usize, u64) {
     (((blob_id & 0xFFFF000000000000) >> 48) as usize, blob_id & 0x0000FFFFFFFFFFFF)
 }
 
+#[inline]
 pub(crate) fn seq_to_blob_id(cpu: usize, sequence: u64) -> u64 {
     let cpu = cpu as u64;
     (sequence & 0x0000FFFFFFFFFFFF) | (cpu << 48)
@@ -93,10 +96,10 @@ impl BlobReceiverGroup {
     pub(crate) fn new(receivers: Vec<BlobReceiver>) -> Self {
         Self { receivers }
     }
-    pub(crate) async fn retrieve(&mut self, blob_id: u64) -> Result<Option<lw_blob_with_data>> {
+    pub(crate) async fn merge_blobs(&mut self, blob_id: u64, buffer: &mut Vec<u8>) -> Result<()> {
         let (cpu, _) = blob_id_to_seq(blob_id);
         if let Some(mut r) = self.receivers.get_mut(cpu) {
-            r.retrieve(blob_id).await
+            merge_blobs(blob_id, buffer, r).await
         } else {
             bail!("invalid cpu id {0}", cpu)
         }
@@ -122,7 +125,7 @@ impl BlobSenderGroup {
     }
 }
 
-fn blob_channel_groups() -> (BlobSenderGroup, BlobReceiverGroup) {
+pub(crate) fn blob_channel_groups() -> (BlobSenderGroup, BlobReceiverGroup) {
     let cpu_num = num_cpus::get();
     let mut receivers = Vec::new();
     let mut senders = Vec::new();

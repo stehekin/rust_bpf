@@ -1,7 +1,8 @@
+use std::rc::Rc;
 use std::time;
 use rand::Rng;
 use tokio::time::sleep;
-use crate::bpf::blob::{BlobReceiver, merge_blobs, seq_to_blob_id};
+use crate::bpf::blob::{BlobReceiver, merge_blobs, seq_to_blob_id, blob_channel_groups};
 use crate::bpf::types_conv::lw_blob_with_data;
 
 
@@ -45,7 +46,7 @@ async fn test_blob_reader() {
 #[tokio::test]
 async fn test_blob_reader_merge() {
     let (sender, receiver) = async_channel::unbounded();
-    let cpu = 0;
+    let cpu = 1;
     let seq = 2;
     let data = "012345678".as_bytes();
 
@@ -74,7 +75,7 @@ async fn test_blob_reader_merge() {
 #[tokio::test]
 async fn test_blob_reader_merge_with_missing_blobs() {
     let (sender, receiver) = async_channel::unbounded();
-    let cpu = 0;
+    let cpu = 1;
     let seq = 2;
     let data = "012345678".as_bytes();
 
@@ -101,11 +102,12 @@ async fn test_blob_reader_merge_with_missing_blobs() {
 }
 
 
+
 #[tokio::test]
 // Interleaved blocks should never happen in the real life. But it is a good test case for the `merge_blobs`.
 async fn test_blob_reader_merge_interleaved_blocks() {
     let (sender, receiver) = async_channel::unbounded();
-    let cpu = 0;
+    let cpu = 1;
     let seq_1 = 2;
     let seq_2 = 7;
     let data = "012345678".as_bytes();
@@ -138,4 +140,34 @@ async fn test_blob_reader_merge_interleaved_blocks() {
 
     assert_eq!(merged_1.as_slice(), data);
     assert!(result_2.is_err());
+}
+
+#[tokio::test]
+async fn test_blob_channel_groups_single_cpu() {
+    let cpu_num = 2; //num_cpus::get();
+    let data = "012345678".as_bytes();
+    let seq = 2;
+
+    let (sender, mut receiver) = blob_channel_groups();
+
+    let r = tokio::spawn(async move {
+        for cpu in 0..cpu_num {
+            let mut merged = vec![];
+            receiver.merge_blobs(seq_to_blob_id(cpu, seq), &mut merged).await.expect("error merging blobs");
+            assert_eq!(merged, data);
+        }
+    });
+
+    sleep(time::Duration::from_secs(2));
+
+    let w = tokio::spawn(async move {
+        for cpu in 0..cpu_num {
+            sender.send(fake_blob(cpu, seq, 9, Some(&data[0..1]))).await.expect("error sending blob");
+            sender.send(fake_blob(cpu, 9, 11, Some(&data[1..6]))).await.expect("error sending blob");
+            sender.send(fake_blob(cpu, 11, 0, Some(&data[6..data.len()]))).await.expect("error sending blob");
+        }
+    });
+
+    w.await.expect("error channel writing");
+    r.await.expect("error merging all blobs");
 }

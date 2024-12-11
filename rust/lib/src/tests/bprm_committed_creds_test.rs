@@ -1,10 +1,5 @@
-use std::cell::RefCell;
 use std::mem::MaybeUninit;
-use std::time::Duration;
 use anyhow::Result;
-use std::rc::Rc;
-use crate::bpf::bprm_committed_creds as bprm;
-use crate::bpf::bprm_committed_creds::ProbeSkel;
 
 use libbpf_rs::{
     skel::{OpenSkel, Skel, SkelBuilder},
@@ -40,12 +35,12 @@ fn test_bprm_committed_creds() {
     // }
 }
 
-fn load_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<ProbeSkel> {
-    let builder = bprm::ProbeSkelBuilder::default();
-
-    let mut open_skel = builder.open(open_object)?;
-    let mut skel = open_skel.load()?;
-    skel.attach()?;
-
-    Ok(skel)
-}
+// fn load_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<ProbeSkel> {
+//     let builder = bprm::ProbeSkelBuilder::default();
+//
+//     let mut open_skel = builder.open(open_object)?;
+//     let mut skel = open_skel.load()?;
+//     skel.attach()?;
+//
+//     Ok(skel)
+// }
