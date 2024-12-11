@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 use async_channel::{Receiver, bounded, Sender};
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use crate::bpf::types_conv::lw_blob_with_data;
 
 const CHANNEL_CAPACITY: usize = 256;
@@ -14,15 +14,15 @@ pub(crate) fn seq_to_blob_id(cpu: usize, sequence: u64) -> u64 {
     (sequence & 0x0000FFFFFFFFFFFF) | (cpu << 48)
 }
 
-pub(crate) struct BlobReader {
+pub(crate) struct BlobReceiver {
     cpu_id: usize,
     receiver: Receiver<lw_blob_with_data>,
     sentry: Option<lw_blob_with_data>,
 }
 
-impl BlobReader {
+impl BlobReceiver {
     pub(crate) fn new(cpu_id: usize, receiver: Receiver<lw_blob_with_data>) -> Self {
-        BlobReader {
+        BlobReceiver {
             cpu_id,
             receiver,
             sentry: None,
@@ -62,6 +62,25 @@ impl BlobReader {
             } else {
                 return Ok(blob)
             }
+        }
+    }
+}
+
+// `merge_blobs` combines the data of blobs. It returns
+// * Ok is all data are copied successfully;
+// * Error if data are copied partially;
+pub(crate) async fn merge_blobs(blob_id: u64, buffer: &mut Vec<u8>, retriever: &mut BlobReceiver) -> Result<()> {
+    let mut blob_id = blob_id;
+    loop {
+        if blob_id == 0 {
+            return Ok(())
+        }
+
+        if let Some(blob) = retriever.retrieve(blob_id).await.context("error retrieving blob")? {
+            buffer.extend_from_slice(&blob.data[..blob.header.data_size as usize]);
+            blob_id = blob.header.blob_next;
+        } else {
+            bail!("required blob is missing")
         }
     }
 }
