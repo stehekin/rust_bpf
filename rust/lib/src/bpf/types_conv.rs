@@ -1,6 +1,6 @@
 use std::mem::size_of;
 use plain::Plain;
-use crate::bpf::types::lw_blob;
+use crate::bpf::types::{lw_blob, lw_sigal_header, lw_signal_task, lw_task};
 
 const BLOB_SIZE_MAX: usize = 1024;
 #[repr(C)]
@@ -20,26 +20,20 @@ impl Default for lw_blob_with_data {
 }
 
 unsafe impl Plain for lw_blob {}
-impl lw_blob {
-    fn from_bytes(buf: &[u8]) -> &lw_blob {
-        plain::from_bytes(buf).expect("corrupted data")
-    }
+unsafe impl Plain for lw_task {}
+unsafe impl Plain for lw_sigal_header {}
+unsafe impl Plain for lw_signal_task {}
 
-    fn from_mut_bytes(buf: &mut [u8]) -> &mut lw_blob {
-        plain::from_mut_bytes(buf).expect("corrupted data")
-    }
-
-    fn copy_from_bytes(buf: &[u8]) -> lw_blob {
-        let mut result = lw_blob::default();
-        plain::copy_from_bytes(&mut result, buf).expect("corrupted data");
-        result
-    }
+pub(crate) fn copy_from_bytes<T: Default + Plain>(buf: &[u8]) -> T {
+    let mut result = T::default();
+    plain::copy_from_bytes(&mut result, buf).expect("corrupted data");
+    result
 }
 
 impl lw_blob_with_data {
     pub fn copy_from_bytes(buf: &[u8]) -> lw_blob_with_data {
         let mut result = lw_blob_with_data {
-            header: lw_blob::copy_from_bytes(buf),
+            header: copy_from_bytes::<lw_blob>(buf),
             data: [0; BLOB_SIZE_MAX],
         };
         let size = result.header.data_size as usize;
