@@ -1,0 +1,2 @@
+#!/bins/sh -
+/usr/bin/unshare -fp --mount-proc date > /dev/null

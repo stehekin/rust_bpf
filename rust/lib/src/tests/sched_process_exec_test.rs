@@ -61,3 +61,8 @@ fn load_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<Prob
 
     Ok(skel)
 }
+
+#[test]
+fn test_run_script() {
+    super::utils::run_script(128, super::resources::scripts::script_ps).unwrap()
+}
