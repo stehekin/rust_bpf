@@ -18,13 +18,14 @@ static inline void init_header(lw_sigal_header *header, lw_signal_type signal_ty
 }
 
 static inline void submit_task(const lw_task *task) {
-  lw_signal_task *signal_task = bpf_ringbuf_reserve(&_blob_ringbuf_, sizeof(lw_signal_task), 0);
+  lw_signal_task *signal_task = bpf_ringbuf_reserve(&_signal_ringbuf_, sizeof(lw_signal_task), 0);
   if (!signal_task) {
     return;
   }
 
   init_header(&signal_task->header, LW_SIGNAL_TASK);
   __builtin_memcpy(&signal_task->body, task, sizeof(lw_task));
+  bpf_printk("submitting task %d %s", signal_task->body.pid.pid, signal_task->body.exec.filename.str);
   bpf_ringbuf_submit(signal_task, 0);
 }
 

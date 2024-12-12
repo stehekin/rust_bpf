@@ -19,14 +19,14 @@
 char _license[] SEC("license") = "GPL";
 
 static s32 copy_str_blobstr(lw_blobstr *dest, const char *src) {
-  s32 result = copy_str(dest->str, BLOBSTR_LEN , src, 0, false);
+  s32 result = copy_str(dest->str, BLOBSTR_LEN , src, 0, true);
   if (result < -1) {
     return 0;
   }
 
   if (result == 1) {
     dest->blob.flag = 0;
-    result = copy_str_to_blob(src, &dest->blob.blob_id, 0, BLOB_SIZE_256, false);
+    result = copy_str_to_blob(src, &dest->blob.blob_id, 0, BLOB_SIZE_256, true);
     if (result < 0) {
       dest->blob.blob_id = 0;
     }

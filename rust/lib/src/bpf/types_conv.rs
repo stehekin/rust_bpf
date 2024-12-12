@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use std::mem::size_of;
 use plain::Plain;
 use crate::bpf::types::{lw_blob, lw_sigal_header, lw_signal_task, lw_task};
@@ -33,7 +34,7 @@ pub(crate) fn copy_from_bytes<T: Default + Plain>(buf: &[u8]) -> T {
 impl lw_blob_with_data {
     pub fn copy_from_bytes(buf: &[u8]) -> lw_blob_with_data {
         let mut result = lw_blob_with_data {
-            header: copy_from_bytes::<lw_blob>(buf),
+            header: copy_from_bytes(buf),
             data: [0; BLOB_SIZE_MAX],
         };
         let size = result.header.data_size as usize;
