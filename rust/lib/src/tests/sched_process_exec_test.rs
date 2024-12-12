@@ -5,9 +5,7 @@ use libbpf_rs::{
 use std::cell::RefCell;
 use std::mem::MaybeUninit;
 use std::rc::Rc;
-use std::thread::sleep;
 use std::time::Duration;
-
 
 use crate::bpf::blob::{blob_channel_groups};
 use crate::bpf::sched_process_exec;
