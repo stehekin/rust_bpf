@@ -1,6 +1,4 @@
-use std::time;
 use rand::Rng;
-use tokio::time::sleep;
 use crate::bpf::blob::{BlobReceiver, merge_blobs, seq_to_blob_id, blob_channel_groups};
 use crate::bpf::types_conv::lw_blob_with_data;
 
@@ -18,7 +16,7 @@ fn fake_blob(cpu: usize, sequence: u64, next: u64, data: Option<&[u8]>) -> lw_bl
     blob
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_blob_reader() {
     let (sender, receiver) = async_channel::unbounded();
     let cpu_id = 3;
@@ -30,8 +28,6 @@ async fn test_blob_reader() {
         reader.retrieve(blob_id).await.expect("error channel reading")
     });
 
-    sleep(time::Duration::from_secs(2));
-
     let w = tokio::spawn(async move {
         for seq in 0..max_seq {
             sender.send(fake_blob(3, seq, 0, None)).await.expect("error sending blob");
@@ -42,7 +38,7 @@ async fn test_blob_reader() {
     assert_eq!(r.await.expect("error channel reading").unwrap().header.blob_id, blob_id);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_blob_reader_merge() {
     let (sender, receiver) = async_channel::unbounded();
     let cpu = 1;
@@ -57,8 +53,6 @@ async fn test_blob_reader_merge() {
         merged
     });
 
-    sleep(time::Duration::from_secs(2));
-
     let w = tokio::spawn(async move {
         sender.send(fake_blob(cpu, seq, 9, Some(&data[0..1]))).await.expect("error sending blob");
         sender.send(fake_blob(cpu, 9, 11, Some(&data[1..6]))).await.expect("error sending blob");
@@ -71,7 +65,7 @@ async fn test_blob_reader_merge() {
     assert_eq!(merged.as_slice(), data);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_blob_reader_merge_with_missing_blobs() {
     let (sender, receiver) = async_channel::unbounded();
     let cpu = 1;
@@ -85,8 +79,6 @@ async fn test_blob_reader_merge_with_missing_blobs() {
         let r = merge_blobs(seq_to_blob_id(cpu, seq), &mut merged, &mut reader).await;
         (merged, r)
     });
-
-    sleep(time::Duration::from_secs(2));
 
     let w = tokio::spawn(async move {
         sender.send(fake_blob(cpu, seq, 9, Some(&data[0..1]))).await.expect("error sending blob");
@@ -102,7 +94,7 @@ async fn test_blob_reader_merge_with_missing_blobs() {
 
 
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 // Interleaved blocks should never happen in the real life. But it is a good test case for the `merge_blobs`.
 async fn test_blob_reader_merge_interleaved_blocks() {
     let (sender, receiver) = async_channel::unbounded();
@@ -120,8 +112,6 @@ async fn test_blob_reader_merge_interleaved_blocks() {
         let result_2 = merge_blobs(seq_to_blob_id(cpu, seq_2), &mut merged_2, &mut reader).await;
         (merged_1, result_2)
     });
-
-    sleep(time::Duration::from_secs(2));
 
     let w = tokio::spawn(async move {
         //  Sequences:
@@ -141,7 +131,7 @@ async fn test_blob_reader_merge_interleaved_blocks() {
     assert!(result_2.is_err());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_blob_channel_groups_single_cpu() {
     let cpu_num = 2; //num_cpus::get();
     let data = "012345678".as_bytes();
@@ -156,8 +146,6 @@ async fn test_blob_channel_groups_single_cpu() {
             assert_eq!(merged, data);
         }
     });
-
-    sleep(time::Duration::from_secs(2));
 
     let w = tokio::spawn(async move {
         for cpu in 0..cpu_num {

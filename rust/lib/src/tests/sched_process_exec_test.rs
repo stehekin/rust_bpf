@@ -13,14 +13,24 @@ use crate::bpf::sched_process_exec::ProbeSkel;
 use crate::bpf::types_conv::{lw_blob_with_data, copy_from_bytes};
 use crate::bpf::types;
 use crate::bpf::types::{lw_sigal_header, lw_signal_task};
-#[test]
-fn test_file_open() {
+
+fn has_suffix(name: &[u8], suffix: &[u8]) -> bool {
+    if let Some(position) = name.windows(suffix.len()).position(|window| window == suffix) {
+        position + suffix.len() == name.len() || name[position + suffix.len()] == 0
+    } else {
+        false
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_file_open() {
     let mut open_object = MaybeUninit::uninit();
     let skel = load_bpf(&mut open_object).unwrap();
 
     let (sender, mut receiver) = blob_channel_groups();
 
     let mut rbb = RingBufferBuilder::new();
+
     let mut exit = Rc::new(RefCell::new(false));
     let exit1 = exit.clone();
 
@@ -31,25 +41,28 @@ fn test_file_open() {
     }).unwrap();
 
     rbb.add(&skel.maps._signal_ringbuf_,   move |data| -> i32 {
-        print!("here!!");
         let header:lw_sigal_header = copy_from_bytes(data);
         if header.signal_type == types::lw_signal_type_LW_SIGNAL_TASK as u8 {
             let task:lw_signal_task = copy_from_bytes(data);
             unsafe {
-                print!("-->task pid: {0} pid_vir {1}  filename: {2} interp: {3}\n", task.body.pid.pid, task.body.pid.pid_vnr, String::from_utf8_lossy(task.body.exec.filename.str_.as_slice()), String::from_utf8_lossy(task.body.exec.interp.str_.as_slice()));
+                *exit1.borrow_mut() = has_suffix(task.body.exec.filename.str_.as_slice(), ".exit".as_bytes());
             }
         }
         return 0;
     }).unwrap();
 
+    let run_processes = tokio::spawn(async move {
+        super::utils::run_script_with_name("exit", ".exit", super::resources::scripts::script).await.expect("error runing exit.exit")
+    });
+
     let rb = rbb.build().unwrap();
-    let mut count = 0;
     while rb.poll(Duration::from_secs(1)).is_ok() {
-        count += 1;
-        if count > 10 {
+        if *exit.borrow() {
             break;
         }
     }
+
+    tokio::join!(run_processes);
 }
 
 fn load_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<ProbeSkel> {
@@ -60,9 +73,4 @@ fn load_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<Prob
     skel.attach()?;
 
     Ok(skel)
-}
-
-#[test]
-fn test_run_script() {
-    super::utils::run_script(128, super::resources::scripts::script_ps).unwrap()
 }

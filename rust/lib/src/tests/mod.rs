@@ -12,20 +12,20 @@ mod utils {
     use std::os::unix::fs::PermissionsExt;
     use std::io::Write;
     use std::process::Command;
-    pub(super) fn run_script(scriptname_len: usize, content: &str) -> Result<()> {
+    pub(super) async fn run_script(prefix_len: usize, suffix: &str, content: &str) -> Result<()> {
         let mut rng = rand::rng();
-        let name: String = rng.sample_iter(Alphanumeric).take(scriptname_len).map(char::from).collect();
-        run_script_with_name(name.as_str(), content)
+        let name: String = rng.sample_iter(Alphanumeric).take(prefix_len).map(char::from).collect();
+        run_script_with_name(name.as_str(), suffix, content).await
     }
 
-    pub(super) fn run_script_with_name(name: &str, content: &str) -> Result<()> {
+    pub(super) async fn run_script_with_name(prefix: &str, suffix: &str, content: &str) -> Result<()> {
         let mut file = Builder::new()
-            .prefix(name)
-            .suffix(".lw_script")
+            .prefix(prefix)
+            .suffix(suffix)
             .permissions(std::fs::Permissions::from_mode(0o700))
             .tempfile()?;
         write!(file, "{0}", content).context("error writing temp file")?;
-        let exit = Command::new(file.path()).status()?;
+        let exit = async_process::Command::new(file.path()).status().await?;
         if exit.success() {
             Ok(())
         } else {

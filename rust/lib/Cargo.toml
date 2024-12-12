@@ -10,6 +10,7 @@ libbpf-cargo = "0.24"
 [dev-dependencies]
 tempfile = "3"
 async-std = "1.13"
+async-process = "2.3"
 
 [dependencies]
 anyhow = "1.0"
@@ -19,5 +20,5 @@ libbpf-rs = "0.24"
 libbpf-sys = "1.5"
 num_cpus = "1"
 plain = "0.2"
-tokio = { version = "1.4", features = ["rt-multi-thread", "macros", "time", "sync"] }
+tokio = { version = "1.4", features = ["rt-multi-thread", "macros", "time"] }
 rand = "0.9.0-beta.1"
