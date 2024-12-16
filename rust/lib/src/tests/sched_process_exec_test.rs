@@ -80,7 +80,7 @@ async fn test_file_open_long_filename() {
     rbb.add(&skel.maps._blob_ringbuf_,   move |data| -> i32 {
         let data = lw_blob_with_data::copy_from_bytes(data);
         let _ = sender.send_blocking(data);
-        return 0;
+        0
     }).unwrap();
 
     let (name_sender, name_receiver) = async_channel::unbounded();
@@ -102,7 +102,7 @@ async fn test_file_open_long_filename() {
                 *exit1.borrow_mut() = has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_exit".as_bytes());
             }
         }
-        return 0;
+        0
     }).unwrap();
 
     let merge_task = tokio::spawn( async move {
