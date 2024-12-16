@@ -3,10 +3,8 @@ use libbpf_rs::{
     skel::{OpenSkel, Skel, SkelBuilder}, RingBufferBuilder,
 };
 use std::cell::RefCell;
-use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use std::rc::Rc;
-use std::thread;
 use std::time::{Duration, Instant};
 use async_std::prelude::FutureExt;
 
@@ -17,8 +15,6 @@ use crate::bpf::types_conv::copy_from_bytes;
 use crate::bpf::types;
 use crate::bpf::types::{lw_sigal_header, lw_signal_task};
 use crate::bpf::types_conv::lw_blob_with_data;
-
-use tokio::runtime::Handle;
 
 fn has_suffix(name: &[u8], suffix: &[u8]) -> bool {
     if let Some(position) = name.windows(suffix.len()).position(|window| window == suffix) {

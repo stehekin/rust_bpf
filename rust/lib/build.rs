@@ -39,6 +39,10 @@ fn bindgen() {
         .header(types)
         .derive_debug(true)
         .derive_default(true)
+        .raw_line("#![allow(non_camel_case_types)]")
+        .raw_line("#![allow(non_upper_case_globals)]")
+        .raw_line("#![allow(non_snake_case)]")
+        .raw_line("#![allow(dead_code)]")
         .allowlist_file(types)
         .generate()
         .expect("unable to generate bindings");

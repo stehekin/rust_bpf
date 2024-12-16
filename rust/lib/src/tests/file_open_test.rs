@@ -1,14 +1,9 @@
 use std::mem::MaybeUninit;
-use std::time::Duration;
 use anyhow::Result;
+use libbpf_rs::{skel::{OpenSkel, Skel, SkelBuilder}};
+
 use crate::bpf::file_open;
 use crate::bpf::file_open::ProbeSkel;
-
-use libbpf_rs::{
-  skel::{OpenSkel, Skel, SkelBuilder},
-  MapHandle, MapType, RingBuffer, RingBufferBuilder,
-};
-use crate::bpf::file_open_util::ProbeSkelExt;
 
 #[test]
 fn test_file_open() {

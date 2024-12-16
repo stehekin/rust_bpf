@@ -7,7 +7,7 @@ mod blob_test;
 mod utils {
     use anyhow::{bail, Context, Result};
     use tempfile;
-    use tempfile::{NamedTempFile, Builder};
+    use tempfile::Builder;
     use rand::{distr::Alphanumeric, Rng};
     use std::os::unix::fs::PermissionsExt;
     use std::io::Write;
