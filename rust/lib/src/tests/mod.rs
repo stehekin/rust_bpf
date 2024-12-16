@@ -11,7 +11,7 @@ mod utils {
     use rand::{distr::Alphanumeric, Rng};
     use std::os::unix::fs::PermissionsExt;
     use std::io::Write;
-    use std::process::Command;
+
     pub(super) async fn run_script(prefix_len: usize, suffix: &str, content: &str) -> Result<()> {
         let mut rng = rand::rng();
         let name: String = rng.sample_iter(Alphanumeric).take(prefix_len).map(char::from).collect();

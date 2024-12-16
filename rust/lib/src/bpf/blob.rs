@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use async_channel::{Receiver, bounded, Sender};
+use async_channel::{Receiver, Sender};
 use anyhow::{bail, Context, Result};
 use crate::bpf::types_conv::lw_blob_with_data;
 
@@ -119,6 +119,15 @@ impl BlobSenderGroup {
         let (cpu, _) = blob_id_to_seq(lw_blob_with_data.header.blob_id);
         if let Some(s) = self.senders.get(cpu) {
             s.send(lw_blob_with_data).await.context("error sending blob data")
+        } else {
+            bail!("invalid cpu id {0}", cpu)
+        }
+    }
+
+    pub(crate) fn send_blocking(&self, lw_blob_with_data: lw_blob_with_data) -> Result<()> {
+        let (cpu, _) = blob_id_to_seq(lw_blob_with_data.header.blob_id);
+        if let Some(s) = self.senders.get(cpu) {
+            s.send_blocking(lw_blob_with_data).context("error sending blob data")
         } else {
             bail!("invalid cpu id {0}", cpu)
         }

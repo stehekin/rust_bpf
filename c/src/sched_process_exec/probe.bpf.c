@@ -25,6 +25,7 @@ static s32 copy_str_blobstr(lw_blobstr *dest, const char *src) {
   }
 
   if (result == 1) {
+    bpf_printk("[DEBUF] copy str to blob %s ", src);
     dest->blob.flag = 0;
     result = copy_str_to_blob(src, &dest->blob.blob_id, 0, BLOB_SIZE_256, true);
     if (result < 0) {

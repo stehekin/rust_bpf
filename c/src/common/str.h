@@ -95,13 +95,14 @@ static inline s32 copy_str(u8 *dest, u16 size, const void *str, long *str_len, b
 
   long len = 0;
   if (kernel) {
-    bpf_probe_read_kernel_str(dest, size, str);
+    len = bpf_probe_read_kernel_str(dest, size, str);
   } else {
-    bpf_probe_read_user_str(dest, size, str);
+    len = bpf_probe_read_user_str(dest, size, str);
   }
   if (str_len) {
     *str_len = len;
   }
+
   if (len < 0) {
     return -1;
   } else if (len < size) {
