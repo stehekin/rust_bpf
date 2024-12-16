@@ -3,6 +3,7 @@ use libbpf_rs::{
     skel::{OpenSkel, Skel, SkelBuilder}, RingBufferBuilder,
 };
 use std::cell::RefCell;
+use std::fmt::Debug;
 use std::mem::MaybeUninit;
 use std::rc::Rc;
 use std::thread;
@@ -55,8 +56,8 @@ async fn test_file_open_regular() {
     }).unwrap();
 
     let run_processes = tokio::spawn(async move {
-        super::utils::run_script_with_name("regular", ".lw_regular", super::resources::scripts::script).await.expect("error running regular");
-        super::utils::run_script_with_name("exit", ".lw_exit", super::resources::scripts::script).await.expect("error running exit script");
+        super::utils::run_script_with_name("regular", ".lw_regular", super::resources::scripts::SCRIPT).await.expect("error running regular");
+        super::utils::run_script_with_name("exit", ".lw_exit", super::resources::scripts::SCRIPT).await.expect("error running exit script");
     });
 
     let rb = rbb.build().unwrap();
@@ -109,16 +110,16 @@ async fn test_file_open_long_filename() {
         return 0;
     }).unwrap();
 
-    let long_receiver = tokio::spawn( async move {
+    let merge_task = tokio::spawn( async move {
         let mut buffer = vec![];
         let blob_id = name_receiver.recv().await.expect("error receiving blob_id");
         receiver.merge_blobs(blob_id, &mut buffer).await.expect("error merging blobs");
-        print!("long file name {0}", String::from_utf8_lossy(&buffer[..]));
+        assert!(has_suffix(String::from_utf8_lossy(buffer.as_slice()).as_bytes(), ".lw_longname_128".as_bytes()));
     });
 
     let run_processes = tokio::spawn(async move {
-        super::utils::run_script(128, ".lw_longname_128", super::resources::scripts::script).await.expect("error running long named script");
-        super::utils::run_script_with_name("exit", ".lw_exit", super::resources::scripts::script).await.expect("error running exit script");
+        super::utils::run_script(128, ".lw_longname_128", super::resources::scripts::SCRIPT).await.expect("error running long named script");
+        super::utils::run_script_with_name("exit", ".lw_exit", super::resources::scripts::SCRIPT).await.expect("error running exit script");
     });
 
     let rb = rbb.build().unwrap();
@@ -131,7 +132,8 @@ async fn test_file_open_long_filename() {
         }
     }
 
-    tokio::join!(run_processes, long_receiver);
+    tokio::join!(run_processes, merge_task);
+
 }
 
 fn load_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<ProbeSkel> {

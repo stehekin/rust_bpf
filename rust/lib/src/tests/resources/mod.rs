@@ -1,4 +1,4 @@
 pub(crate) mod scripts {
-    pub(crate) const unshare: &str = include_str!("unshare");
-    pub(crate) const script: &str = include_str!("script");
+    pub(crate) const UNSHARE: &str = include_str!("unshare");
+    pub(crate) const SCRIPT: &str = include_str!("script");
 }
