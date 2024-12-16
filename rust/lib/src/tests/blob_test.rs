@@ -21,7 +21,7 @@ async fn test_blob_reader() {
     let (sender, receiver) = async_channel::unbounded();
     let cpu_id = 3;
     let max_seq = 1024;
-    let blob_id = seq_to_blob_id(cpu_id, rand::thread_rng().gen_range(0..max_seq));
+    let blob_id = seq_to_blob_id(cpu_id, rand::rng().random_range(0..max_seq));
 
     let r= tokio::spawn(async move {
         let mut reader = BlobReceiver::new(cpu_id, receiver);

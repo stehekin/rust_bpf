@@ -13,7 +13,7 @@ mod utils {
     use std::io::Write;
 
     pub(super) async fn run_script(prefix_len: usize, suffix: &str, content: &str) -> Result<()> {
-        let mut rng = rand::rng();
+        let rng = rand::rng();
         let name: String = rng.sample_iter(Alphanumeric).take(prefix_len).map(char::from).collect();
         run_script_with_name(name.as_str(), suffix, content).await
     }

@@ -6,7 +6,6 @@ use std::cell::RefCell;
 use std::mem::MaybeUninit;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
-use async_std::prelude::FutureExt;
 
 use crate::bpf::blob::{blob_channel_groups};
 use crate::bpf::sched_process_exec;
@@ -29,7 +28,7 @@ async fn test_file_open_regular() {
     let mut open_object = MaybeUninit::uninit();
     let skel = load_bpf(&mut open_object).unwrap();
     let mut rbb = RingBufferBuilder::new();
-    let mut exit = Rc::new(RefCell::new(false));
+    let exit = Rc::new(RefCell::new(false));
     let exit1 = exit.clone();
 
     rbb.add(&skel.maps._signal_ringbuf_,   move |data| -> i32 {
@@ -66,7 +65,7 @@ async fn test_file_open_regular() {
         }
     }
 
-    tokio::join!(run_processes);
+    run_processes.await.expect("error running processes")
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -75,7 +74,7 @@ async fn test_file_open_long_filename() {
     let skel = load_bpf(&mut open_object).unwrap();
     let (sender, mut receiver) = blob_channel_groups();
     let mut rbb = RingBufferBuilder::new();
-    let mut exit = Rc::new(RefCell::new(false));
+    let exit = Rc::new(RefCell::new(false));
     let exit1 = exit.clone();
 
     rbb.add(&skel.maps._blob_ringbuf_,   move |data| -> i32 {
@@ -128,14 +127,14 @@ async fn test_file_open_long_filename() {
         }
     }
 
-    tokio::join!(run_processes, merge_task);
-
+    run_processes.await.expect("error running processes");
+    merge_task.await.expect("error merging blobs");
 }
 
 fn load_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<ProbeSkel> {
     let builder = sched_process_exec::ProbeSkelBuilder::default();
 
-    let mut open_skel = builder.open(open_object)?;
+    let open_skel = builder.open(open_object)?;
     let mut skel = open_skel.load()?;
     skel.attach()?;
 

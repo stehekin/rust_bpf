@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use async_channel::{Receiver, Sender};
 use anyhow::{bail, Context, Result};
 use crate::bpf::types_conv::lw_blob_with_data;
@@ -98,7 +97,7 @@ impl BlobReceiverGroup {
     }
     pub(crate) async fn merge_blobs(&mut self, blob_id: u64, buffer: &mut Vec<u8>) -> Result<()> {
         let (cpu, _) = blob_id_to_seq(blob_id);
-        if let Some(mut r) = self.receivers.get_mut(cpu) {
+        if let Some(r) = self.receivers.get_mut(cpu) {
             merge_blobs(blob_id, buffer, r).await
         } else {
             bail!("invalid cpu id {0}", cpu)

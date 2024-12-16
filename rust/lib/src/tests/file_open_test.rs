@@ -1,9 +1,9 @@
-use std::mem::MaybeUninit;
-use anyhow::Result;
-use libbpf_rs::{skel::{OpenSkel, Skel, SkelBuilder}};
-
-use crate::bpf::file_open;
-use crate::bpf::file_open::ProbeSkel;
+// use std::mem::MaybeUninit;
+// use anyhow::Result;
+// use libbpf_rs::{skel::{OpenSkel, Skel, SkelBuilder}};
+//
+// use crate::bpf::file_open;
+// use crate::bpf::file_open::ProbeSkel;
 
 #[test]
 fn test_file_open() {
@@ -13,12 +13,12 @@ fn test_file_open() {
   // std::thread::sleep(Duration::from_secs(3600));
 }
 
-fn load_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<ProbeSkel> {
-  let builder = file_open::ProbeSkelBuilder::default();
-
-  let mut open_skel = builder.open(open_object)?;
-  let mut skel = open_skel.load()?;
-  skel.attach()?;
-
-  Ok(skel)
-}
+// fn load_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<ProbeSkel> {
+//   let builder = file_open::ProbeSkelBuilder::default();
+//
+//   let open_skel = builder.open(open_object)?;
+//   let mut skel = open_skel.load()?;
+//   skel.attach()?;
+//
+//   Ok(skel)
+// }
