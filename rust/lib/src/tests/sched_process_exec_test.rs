@@ -24,7 +24,7 @@ fn has_suffix(name: &[u8], suffix: &[u8]) -> bool {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_file_open_regular() {
+async fn test_process_regular() {
     let mut open_object = MaybeUninit::uninit();
     let skel = load_bpf(&mut open_object).unwrap();
     let mut rbb = RingBufferBuilder::new();
@@ -69,7 +69,7 @@ async fn test_file_open_regular() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_file_open_long_filename() {
+async fn test_process_long_filename() {
     let mut open_object = MaybeUninit::uninit();
     let skel = load_bpf(&mut open_object).unwrap();
     let (sender, mut receiver) = blob_channel_groups();
@@ -129,6 +129,61 @@ async fn test_file_open_long_filename() {
 
     run_processes.await.expect("error running processes");
     merge_task.await.expect("error merging blobs");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_process_unshare() {
+    let mut open_object = MaybeUninit::uninit();
+    let skel = load_bpf(&mut open_object).unwrap();
+    let mut rbb = RingBufferBuilder::new();
+    let exit = Rc::new(RefCell::new(false));
+    let exit1 = exit.clone();
+
+    let grand_parent: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
+    let parent: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
+
+    rbb.add(&skel.maps._signal_ringbuf_,   move |data| -> i32 {
+        let header:lw_sigal_header = copy_from_bytes(data);
+        if header.signal_type == types::lw_signal_type_LW_SIGNAL_TASK as u8 {
+            let task:lw_signal_task = copy_from_bytes(data);
+            unsafe {
+                assert_ne!(task.body.pid.pid, 0);
+                assert_ne!(task.body.pid.pid_ns, 0);
+
+                if has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_unshare".as_bytes()) {
+                    *grand_parent.borrow_mut() = task.body.pid.pid;
+                } else if has_suffix(task.body.exec.filename.str_.as_slice(), "unshare".as_bytes()) {
+                    *parent.borrow_mut() = task.body.pid.pid;
+                    assert_eq!(task.body.parent.pid, *grand_parent.borrow());
+                }
+
+                if task.body.pid.pid_vnr == 1 {
+                    assert_eq!(task.body.parent.pid, *parent.borrow());
+                    assert!(has_suffix(task.body.exec.filename.str_.as_slice(), "date".as_bytes()))
+                }
+
+                *exit1.borrow_mut() = has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_exit".as_bytes());
+            }
+        }
+        return 0;
+    }).unwrap();
+
+    let run_processes = tokio::spawn(async move {
+        super::utils::run_script_with_name("regular", ".lw_unshare", super::resources::scripts::UNSHARE).await.expect("error running unshare");
+        super::utils::run_script_with_name("exit", ".lw_exit", super::resources::scripts::SCRIPT).await.expect("error running exit script");
+    });
+
+    let rb = rbb.build().unwrap();
+    let now = Instant::now();
+    let deadline = Duration::from_secs(15);
+    loop {
+        rb.poll(Duration::from_secs(1)).expect("ringbuffer polling error");
+        if *exit.borrow() || now.elapsed().ge(&deadline) {
+            break;
+        }
+    }
+
+    run_processes.await.expect("error running processes")
 }
 
 fn load_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<ProbeSkel> {

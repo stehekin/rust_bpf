@@ -369,6 +369,7 @@ pub struct lw_exec {
     pub filename: lw_blobstr,
     pub interp: lw_blobstr,
     pub env: u64_,
+    pub boot_ns: u64_,
 }
 #[test]
 fn bindgen_test_layout_lw_exec() {
@@ -376,7 +377,7 @@ fn bindgen_test_layout_lw_exec() {
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<lw_exec>(),
-        264usize,
+        272usize,
         concat!("Size of: ", stringify!(lw_exec))
     );
     assert_eq!(
@@ -414,6 +415,16 @@ fn bindgen_test_layout_lw_exec() {
             stringify!(env)
         )
     );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).boot_ns) as usize - ptr as usize },
+        264usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_exec),
+            "::",
+            stringify!(boot_ns)
+        )
+    );
 }
 impl Default for lw_exec {
     fn default() -> Self {
@@ -425,11 +436,65 @@ impl Default for lw_exec {
     }
 }
 #[repr(C)]
+#[derive(Debug, Default, Copy, Clone)]
+pub struct lw_parent {
+    pub pid: u32_,
+    pub tgid: u32_,
+    pub boot_ns: u64_,
+}
+#[test]
+fn bindgen_test_layout_lw_parent() {
+    const UNINIT: ::std::mem::MaybeUninit<lw_parent> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<lw_parent>(),
+        16usize,
+        concat!("Size of: ", stringify!(lw_parent))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<lw_parent>(),
+        8usize,
+        concat!("Alignment of ", stringify!(lw_parent))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).pid) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_parent),
+            "::",
+            stringify!(pid)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).tgid) as usize - ptr as usize },
+        4usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_parent),
+            "::",
+            stringify!(tgid)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).boot_ns) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_parent),
+            "::",
+            stringify!(boot_ns)
+        )
+    );
+}
+#[repr(C)]
 #[derive(Copy, Clone)]
 pub struct lw_task {
     pub creds: lw_creds,
     pub pid: lw_pid,
+    pub parent: lw_parent,
     pub exec: lw_exec,
+    pub boot_ns: u64_,
 }
 #[test]
 fn bindgen_test_layout_lw_task() {
@@ -437,7 +502,7 @@ fn bindgen_test_layout_lw_task() {
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<lw_task>(),
-        296usize,
+        328usize,
         concat!("Size of: ", stringify!(lw_task))
     );
     assert_eq!(
@@ -466,13 +531,33 @@ fn bindgen_test_layout_lw_task() {
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).exec) as usize - ptr as usize },
+        unsafe { ::std::ptr::addr_of!((*ptr).parent) as usize - ptr as usize },
         32usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_task),
             "::",
+            stringify!(parent)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).exec) as usize - ptr as usize },
+        48usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_task),
+            "::",
             stringify!(exec)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).boot_ns) as usize - ptr as usize },
+        320usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_task),
+            "::",
+            stringify!(boot_ns)
         )
     );
 }
@@ -573,7 +658,7 @@ fn bindgen_test_layout_lw_signal_task() {
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<lw_signal_task>(),
-        312usize,
+        344usize,
         concat!("Size of: ", stringify!(lw_signal_task))
     );
     assert_eq!(
