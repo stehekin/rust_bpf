@@ -159,7 +159,6 @@ static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, 
       break;
     }
 
-    bpf_printk("blob size to call next %d", blob->blob_size);
     blob = next_blob(blob);
   }
 
@@ -171,7 +170,6 @@ static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, 
     }
   }
 
-  bpf_printk(">>>%d<<<", rv);
   return rv;
 }
 

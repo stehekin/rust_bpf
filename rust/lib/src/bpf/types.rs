@@ -52,10 +52,10 @@ pub type BLOB_SIZE = ::std::os::raw::c_uint;
 #[derive(Debug, Default)]
 pub struct lw_blob {
     pub version: u8_,
-    pub reserved: u8_,
+    pub _reserved1: u8_,
     pub blob_size: u16_,
     pub data_size: u16_,
-    pub _reserved: u32_,
+    pub _reserved2: u16_,
     pub blob_id: u64_,
     pub blob_next: u64_,
     pub data: __IncompleteArrayField<u8_>,
@@ -66,7 +66,7 @@ fn bindgen_test_layout_lw_blob() {
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<lw_blob>(),
-        32usize,
+        24usize,
         concat!("Size of: ", stringify!(lw_blob))
     );
     assert_eq!(
@@ -85,13 +85,13 @@ fn bindgen_test_layout_lw_blob() {
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).reserved) as usize - ptr as usize },
+        unsafe { ::std::ptr::addr_of!((*ptr)._reserved1) as usize - ptr as usize },
         1usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_blob),
             "::",
-            stringify!(reserved)
+            stringify!(_reserved1)
         )
     );
     assert_eq!(
@@ -115,18 +115,18 @@ fn bindgen_test_layout_lw_blob() {
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr)._reserved) as usize - ptr as usize },
-        8usize,
+        unsafe { ::std::ptr::addr_of!((*ptr)._reserved2) as usize - ptr as usize },
+        6usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_blob),
             "::",
-            stringify!(_reserved)
+            stringify!(_reserved2)
         )
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).blob_id) as usize - ptr as usize },
-        16usize,
+        8usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_blob),
@@ -136,7 +136,7 @@ fn bindgen_test_layout_lw_blob() {
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).blob_next) as usize - ptr as usize },
-        24usize,
+        16usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_blob),
@@ -146,7 +146,7 @@ fn bindgen_test_layout_lw_blob() {
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).data) as usize - ptr as usize },
-        32usize,
+        24usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_blob),
@@ -588,7 +588,7 @@ pub struct lw_sigal_header {
     pub version: u8_,
     pub signal_type: u8_,
     pub cpu_id: u16_,
-    pub reserved: u32_,
+    pub _reserved: u32_,
     pub submit_time_ns: u64_,
 }
 #[test]
@@ -636,13 +636,13 @@ fn bindgen_test_layout_lw_sigal_header() {
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).reserved) as usize - ptr as usize },
+        unsafe { ::std::ptr::addr_of!((*ptr)._reserved) as usize - ptr as usize },
         4usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_sigal_header),
             "::",
-            stringify!(reserved)
+            stringify!(_reserved)
         )
     );
     assert_eq!(

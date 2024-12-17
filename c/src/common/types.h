@@ -17,12 +17,12 @@ typedef enum  {
 
 typedef struct {
   u8 version;
-  u8 reserved;
+  u8 _reserved1;
   // blob size.
   u16 blob_size;
   // Size of the effective data in the blob.
   u16 data_size;
-  u32 _reserved;
+  u16 _reserved2;
   u64 blob_id;
   u64 blob_next;
   u8 data[0];
@@ -82,7 +82,7 @@ typedef struct {
   u8 version;
   u8 signal_type;
   u16 cpu_id;
-  u32 reserved;
+  u32 _reserved;
   u64 submit_time_ns;
 } lw_sigal_header;
 

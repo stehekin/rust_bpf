@@ -14,7 +14,7 @@ static inline void init_header(lw_sigal_header *header, lw_signal_type signal_ty
   header->signal_type = signal_type;
   header->cpu_id = bpf_get_smp_processor_id();
   header->submit_time_ns = KTIME_NS();
-  header->reserved = 0;
+  header->_reserved = 0;
 }
 
 static inline void submit_task(const lw_task *task) {
