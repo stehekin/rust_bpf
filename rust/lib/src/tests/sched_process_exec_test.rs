@@ -40,6 +40,7 @@ async fn test_process_regular() {
                 assert_ne!(task.body.pid.pid_ns, 0);
 
                 if has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_regular".as_bytes()) {
+                    assert!(has_suffix(task.body.exec.interp.str_.as_slice(), "/bin/sh".as_bytes()));
                     assert_ne!(task.body.pid.pid, 1);
                     assert_eq!(task.body.pid.pid, task.body.pid.pid_vnr, "{0} != {1}", task.body.pid.pid, task.body.pid.pid_vnr);
                     assert_ne!(task.body.exec.filename.blob.flag, 0);
@@ -94,6 +95,7 @@ async fn test_process_long_filename() {
                 assert_ne!(task.body.pid.pid_ns, 0);
 
                 if task.body.exec.filename.blob.flag == 0 {
+                    assert!(has_suffix(task.body.exec.interp.str_.as_slice(), "/bin/sh".as_bytes()));
                     assert_ne!(task.body.pid.pid, 1);
                     assert_eq!(task.body.pid.pid, task.body.pid.pid_vnr, "{0} != {1}", task.body.pid.pid, task.body.pid.pid_vnr);
                     assert_eq!(task.body.exec.filename.blob.flag, 0, "{0} != 0", task.body.exec.filename.blob.flag);
@@ -151,6 +153,7 @@ async fn test_process_unshare() {
                 assert_ne!(task.body.pid.pid_ns, 0);
 
                 if has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_unshare".as_bytes()) {
+                    assert!(has_suffix(task.body.exec.interp.str_.as_slice(), "/bin/sh".as_bytes()));
                     *grand_parent.borrow_mut() = task.body.pid.pid;
                 } else if has_suffix(task.body.exec.filename.str_.as_slice(), "unshare".as_bytes()) {
                     *parent.borrow_mut() = task.body.pid.pid;
