@@ -2,6 +2,7 @@
 #define __LW_TASK_H__
 
 #include "common/types.h"
+#include "common/blob.h"
 #include "common/vmlinux.h"
 #include <bpf_core_read.h>
 #include <bpf_helpers.h>
@@ -40,5 +41,8 @@ static inline void get_task_parent(const struct task_struct *parent_task, lw_par
   parent->tgid = BPF_CORE_READ(parent_task, tgid);
   parent->boot_ns = BPF_CORE_READ(parent_task, start_boottime);
 }
+
+// copy_env(&exec->env, current);
+//   copy_args(&exec->args, current);
 
 #endif

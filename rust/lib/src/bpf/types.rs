@@ -368,8 +368,8 @@ impl Default for lw_blobstr {
 pub struct lw_exec {
     pub filename: lw_blobstr,
     pub interp: lw_blobstr,
+    pub args: u64_,
     pub env: u64_,
-    pub boot_ns: u64_,
 }
 #[test]
 fn bindgen_test_layout_lw_exec() {
@@ -406,23 +406,23 @@ fn bindgen_test_layout_lw_exec() {
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).env) as usize - ptr as usize },
+        unsafe { ::std::ptr::addr_of!((*ptr).args) as usize - ptr as usize },
         256usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_exec),
             "::",
-            stringify!(env)
+            stringify!(args)
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).boot_ns) as usize - ptr as usize },
+        unsafe { ::std::ptr::addr_of!((*ptr).env) as usize - ptr as usize },
         264usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_exec),
             "::",
-            stringify!(boot_ns)
+            stringify!(env)
         )
     );
 }

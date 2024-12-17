@@ -166,6 +166,7 @@ static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, 
     }
   }
 
+  bpf_printk(">>>%d<<<", rv);
   return rv;
 }
 

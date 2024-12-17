@@ -54,8 +54,8 @@ typedef union {
 typedef struct {
   lw_blobstr filename;
   lw_blobstr interp;
+  u64 args;
   u64 env;
-  u64 boot_ns;
 } lw_exec;
 
 typedef struct {

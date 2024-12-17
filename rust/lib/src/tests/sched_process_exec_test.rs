@@ -84,7 +84,7 @@ async fn test_process_long_filename() {
         0
     }).unwrap();
 
-    let (name_sender, name_receiver) = async_channel::unbounded();
+    let (blob_id_sender, blob_id_reciever) = async_channel::unbounded();
 
     rbb.add(&skel.maps._signal_ringbuf_,   move |data| -> i32 {
         let header:lw_sigal_header = copy_from_bytes(data);
@@ -99,7 +99,7 @@ async fn test_process_long_filename() {
                     assert_ne!(task.body.pid.pid, 1);
                     assert_eq!(task.body.pid.pid, task.body.pid.pid_vnr, "{0} != {1}", task.body.pid.pid, task.body.pid.pid_vnr);
                     assert_eq!(task.body.exec.filename.blob.flag, 0, "{0} != 0", task.body.exec.filename.blob.flag);
-                    name_sender.send_blocking(task.body.exec.filename.blob.blob_id).expect("error sending blob_id");
+                    blob_id_sender.send_blocking(task.body.exec.filename.blob.blob_id).expect("error sending blob_id");
                 }
                 *exit1.borrow_mut() = has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_exit".as_bytes());
             }
@@ -109,7 +109,7 @@ async fn test_process_long_filename() {
 
     let merge_task = tokio::spawn( async move {
         let mut buffer = vec![];
-        let blob_id = name_receiver.recv().await.expect("error receiving blob_id");
+        let blob_id = blob_id_reciever.recv().await.expect("error receiving blob_id");
         receiver.merge_blobs(blob_id, &mut buffer).await.expect("error merging blobs");
         assert!(has_suffix(String::from_utf8_lossy(buffer.as_slice()).as_bytes(), ".lw_longname_128".as_bytes()));
     });
@@ -187,6 +187,69 @@ async fn test_process_unshare() {
     }
 
     run_processes.await.expect("error running processes")
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_process_args() {
+    let mut open_object = MaybeUninit::uninit();
+    let skel = load_bpf(&mut open_object).unwrap();
+    let (sender, mut receiver) = blob_channel_groups();
+    let mut rbb = RingBufferBuilder::new();
+    let exit = Rc::new(RefCell::new(false));
+    let exit1 = exit.clone();
+
+    rbb.add(&skel.maps._blob_ringbuf_,   move |data| -> i32 {
+        let data = lw_blob_with_data::copy_from_bytes(data);
+        let _ = sender.send_blocking(data);
+        0
+    }).unwrap();
+
+    let (blob_id_sender, blob_id_receiver) = async_channel::unbounded();
+
+    rbb.add(&skel.maps._signal_ringbuf_,   move |data| -> i32 {
+        let header:lw_sigal_header = copy_from_bytes(data);
+        if header.signal_type == types::lw_signal_type_LW_SIGNAL_TASK as u8 {
+            let task:lw_signal_task = copy_from_bytes(data);
+            unsafe {
+                assert_ne!(task.body.pid.pid, 0);
+                assert_ne!(task.body.pid.pid_ns, 0);
+
+                if has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_regular".as_bytes()) {
+                    // blob_id_sender.send_blocking(task.body.exec.args).expect("error sending args blob_id");
+                    // blob_id_sender.send_blocking(task.body.exec.env).expect("error sending env blob_id");
+                    print!(">>> {0}", task.body.exec.args);
+                }
+                *exit1.borrow_mut() = has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_exit".as_bytes());
+            }
+        }
+        0
+    }).unwrap();
+
+    let merge_task = tokio::spawn(async move {
+        let mut buffer = vec![];
+        let blob_id = blob_id_receiver.recv().await.expect("error receiving blob_id");
+        receiver.merge_blobs(blob_id, &mut buffer).await.expect("error merging blobs");
+        print!("{0}", String::from_utf8_lossy(buffer.as_slice()));
+        // assert!(has_suffix(String::from_utf8_lossy(buffer.as_slice()).as_bytes());
+    });
+
+    let run_processes = tokio::spawn(async move {
+        super::utils::run_script_with_name("regular", ".lw_regular", super::resources::scripts::SCRIPT).await.expect("error running regular");
+        super::utils::run_script_with_name("exit", ".lw_exit", super::resources::scripts::SCRIPT).await.expect("error running exit script");
+    });
+
+    let rb = rbb.build().unwrap();
+    let now = Instant::now();
+    let deadline = Duration::from_secs(15);
+    loop {
+        rb.poll(Duration::from_secs(1)).expect("ringbuffer polling error");
+        if *exit.borrow() || now.elapsed().ge(&deadline) {
+            break;
+        }
+    }
+
+    run_processes.await.expect("error running processes");
+    // merge_task.await.expect("error merging blobs");
 }
 
 fn load_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<ProbeSkel> {

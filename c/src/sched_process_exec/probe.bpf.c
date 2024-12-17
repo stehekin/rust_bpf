@@ -49,7 +49,6 @@ int BPF_PROG(sched_process_exec, struct task_struct *_ignore, pid_t old_pid, str
   struct task_struct *current_parent = BPF_CORE_READ(current, real_parent);
   lw_parent *parent = &task->parent;
 
-
   get_task_parent(current_parent, &task->parent);
   get_task_creds(current, &task->creds);
   get_task_proc(current, &task->pid);
@@ -58,6 +57,14 @@ int BPF_PROG(sched_process_exec, struct task_struct *_ignore, pid_t old_pid, str
 
   copy_str_blobstr(&exec->filename, BPF_CORE_READ(bprm, filename));
   copy_str_blobstr(&exec->interp, (void *)BPF_CORE_READ(bprm, interp));
+
+  u64 arg_start = BPF_CORE_READ(current, mm, arg_start);
+  u64 arg_end = BPF_CORE_READ(current, mm, arg_end);
+  copy_data_to_blob((void *)arg_start, arg_end - arg_start + 1, &exec->args, true);
+
+  u64 env_start = BPF_CORE_READ(current, mm, env_start);
+  u64 env_end = BPF_CORE_READ(current, mm, env_end);
+  copy_data_to_blob((void *)env_start, env_end - env_start + 1, &exec->env, true);
 
   task->boot_ns = BPF_CORE_READ(current, start_boottime);
 
