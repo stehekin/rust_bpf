@@ -215,9 +215,7 @@ async fn test_process_args() {
                 assert_ne!(task.body.pid.pid_ns, 0);
 
                 if has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_regular".as_bytes()) {
-                    // blob_id_sender.send_blocking(task.body.exec.args).expect("error sending args blob_id");
-                    // blob_id_sender.send_blocking(task.body.exec.env).expect("error sending env blob_id");
-                    print!(">>> {0}", task.body.exec.args);
+                    blob_id_sender.send_blocking(task.body.exec.env).expect("error sending args blob_id");
                 }
                 *exit1.borrow_mut() = has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_exit".as_bytes());
             }
@@ -229,7 +227,8 @@ async fn test_process_args() {
         let mut buffer = vec![];
         let blob_id = blob_id_receiver.recv().await.expect("error receiving blob_id");
         receiver.merge_blobs(blob_id, &mut buffer).await.expect("error merging blobs");
-        print!("{0}", String::from_utf8_lossy(buffer.as_slice()));
+        print!("\n{0}", buffer.len());
+        print!("\n{0}", String::from_utf8_lossy(buffer.as_slice()));
         // assert!(has_suffix(String::from_utf8_lossy(buffer.as_slice()).as_bytes());
     });
 

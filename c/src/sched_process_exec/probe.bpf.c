@@ -25,7 +25,6 @@ static s32 copy_str_blobstr(lw_blobstr *dest, const char *src) {
   }
 
   if (result == 1) {
-    bpf_printk("[DEBUF] copy str to blob %s ", src);
     dest->blob.flag = 0;
     result = copy_str_to_blob(src, &dest->blob.blob_id, 0, BLOB_SIZE_256, true);
     if (result < 0) {
@@ -60,11 +59,11 @@ int BPF_PROG(sched_process_exec, struct task_struct *_ignore, pid_t old_pid, str
 
   u64 arg_start = BPF_CORE_READ(current, mm, arg_start);
   u64 arg_end = BPF_CORE_READ(current, mm, arg_end);
-  copy_data_to_blob((void *)arg_start, arg_end - arg_start + 1, &exec->args, true);
+  copy_data_to_blob((void *)arg_start, arg_end - arg_start + 1, &exec->args, false);
 
   u64 env_start = BPF_CORE_READ(current, mm, env_start);
   u64 env_end = BPF_CORE_READ(current, mm, env_end);
-  copy_data_to_blob((void *)env_start, env_end - env_start + 1, &exec->env, true);
+  copy_data_to_blob((void *)env_start, env_end - env_start + 1, &exec->env, false);
 
   task->boot_ns = BPF_CORE_READ(current, start_boottime);
 

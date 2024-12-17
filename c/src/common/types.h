@@ -13,13 +13,13 @@ typedef enum  {
   BLOB_SIZE_256 = 256,
   BLOB_SIZE_512 = 512,
   BLOB_SIZE_1024 = 1024,
-  BLOB_SIZE_MAX = BLOB_SIZE_1024,
 } BLOB_SIZE;
 
 typedef struct {
   u8 version;
-  // Size of the blob_size.
-  u8 blob_size;
+  u8 reserved;
+  // blob size.
+  u16 blob_size;
   // Size of the effective data in the blob.
   u16 data_size;
   u32 _reserved;

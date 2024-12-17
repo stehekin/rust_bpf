@@ -36,6 +36,9 @@ static s32 copy_str_to_blob(const void *str, u64 *blob_id, u64 *str_len,  BLOB_S
       len = bpf_probe_read_user_str(blob->data, blob_size, str + total_copied);
     }
     if (len < 0) {
+      if (i == 0) {
+        *blob_id = 0;
+      }
       break;
     }
 

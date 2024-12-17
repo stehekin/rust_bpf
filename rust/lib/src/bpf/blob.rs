@@ -18,6 +18,7 @@ pub(crate) async fn merge_blobs(blob_id: u64, buffer: &mut Vec<u8>, retriever: &
         if let Some(blob) = retriever.retrieve(blob_id).await.context("error retrieving blob")? {
             buffer.extend_from_slice(&blob.data[..blob.header.data_size as usize]);
             blob_id = blob.header.blob_next;
+            print!(">>>next blob_id: {0}\n", blob_id);
         } else {
             bail!("required blob with id {0} is missing", blob_id)
         }
@@ -96,6 +97,9 @@ impl BlobReceiverGroup {
         Self { receivers }
     }
     pub(crate) async fn merge_blobs(&mut self, blob_id: u64, buffer: &mut Vec<u8>) -> Result<()> {
+        if blob_id == 0 {
+            return Ok(());
+        }
         let (cpu, _) = blob_id_to_seq(blob_id);
         if let Some(r) = self.receivers.get_mut(cpu) {
             merge_blobs(blob_id, buffer, r).await

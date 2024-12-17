@@ -34,6 +34,7 @@ static void* reserve_blob(BLOB_SIZE blob_size) {
   *blob_id += 1;
 
   lw_blob *blob = 0;
+
   switch (blob_size) {
     case BLOB_SIZE_256: {
       blob = bpf_ringbuf_reserve(&_blob_ringbuf_, BLOB_SIZE_256, 0);
@@ -54,14 +55,15 @@ static void* reserve_blob(BLOB_SIZE blob_size) {
     return 0;
   }
 
-  blob-> version = 0x01;
+
+
+  blob->version = 0x01;
   blob->blob_size = blob_size;
   blob->data_size = 0;
   blob->blob_id = create_blob_id(*blob_id);
   blob->blob_next = 0;
 
   bpf_map_update_elem(&_blob_index_, &zero, blob_id, BPF_ANY);
-
   return blob;
 }
 
@@ -94,7 +96,7 @@ static inline lw_blob *next_blob(lw_blob *blob) {
 // * -1 if it has failed;
 //
 // `blob_id` is the first blob submitted, even if the function has failed.
-// If no blobs are submitted, `blob_id` is -1.
+// If no blobs are submitted, `blob_id` is 0.
 // `data_len` is the length of the data to be copied (NULL not included).
 //
 // Maximum blobs supported by this function is 16.
@@ -105,8 +107,6 @@ static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, 
     return rv;
   }
 
-  bpf_printk("--%d--", data_len);
-
   long data_ptr = 0;
   BLOB_SIZE blob_size = BLOB_SIZE_256;
 
@@ -116,6 +116,7 @@ static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, 
     blob_size = BLOB_SIZE_512;
   }
 
+  *blob_id = 0;
   lw_blob * blob = reserve_blob(blob_size);
   blob_size -= sizeof(lw_blob);
 
@@ -132,6 +133,9 @@ static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, 
       result = bpf_probe_read_user(blob->data, blob_size, src + data_ptr);
     }
     if (result < 0) {
+      if (i == 0) {
+        *blob_id = 0;
+      }
       break;
     }
 
@@ -155,6 +159,7 @@ static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, 
       break;
     }
 
+    bpf_printk("blob size to call next %d", blob->blob_size);
     blob = next_blob(blob);
   }
 
