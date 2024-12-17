@@ -46,12 +46,20 @@ int BPF_PROG(sched_process_exec, struct task_struct *_ignore, pid_t old_pid, str
     return 0;
   }
 
+  struct task_struct *current_parent = BPF_CORE_READ(current, real_parent);
+  lw_parent *parent = &task->parent;
+
+
+  get_task_parent(current_parent, &task->parent);
   get_task_creds(current, &task->creds);
   get_task_proc(current, &task->pid);
 
   lw_exec *exec = &task->exec;
+
   copy_str_blobstr(&exec->filename, BPF_CORE_READ(bprm, filename));
   copy_str_blobstr(&exec->interp, (void *)BPF_CORE_READ(bprm, interp));
+
+  task->boot_ns = BPF_CORE_READ(current, start_boottime);
 
   submit_task(task);
   return 0;

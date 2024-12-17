@@ -261,8 +261,6 @@ struct task_struct {
   struct task_struct *parent;      // __rcu.
   struct task_struct *real_parent; // __rcu.
   u64 start_time;
-  // Deprecated. Use start_boottime if it exists.
-  u64 real_start_time;
   u64 start_boottime;
   struct files_struct *files;
   struct mm_struct		*mm;

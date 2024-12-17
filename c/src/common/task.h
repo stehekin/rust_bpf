@@ -35,4 +35,10 @@ static inline void get_task_proc(const struct task_struct *task, lw_pid *pids) {
   pids->pid_vnr = get_task_pid_vnr(task);
 }
 
+static inline void get_task_parent(const struct task_struct *parent_task, lw_parent *parent) {
+  parent->pid = BPF_CORE_READ(parent_task, pid);
+  parent->tgid = BPF_CORE_READ(parent_task, tgid);
+  parent->boot_ns = BPF_CORE_READ(parent_task, start_boottime);
+}
+
 #endif

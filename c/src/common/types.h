@@ -55,12 +55,21 @@ typedef struct {
   lw_blobstr filename;
   lw_blobstr interp;
   u64 env;
+  u64 boot_ns;
 } lw_exec;
+
+typedef struct {
+  u32 pid;
+  u32 tgid;
+  u64 boot_ns;
+} lw_parent;
 
 typedef struct {
   lw_creds creds;
   lw_pid pid;
+  lw_parent parent;
   lw_exec exec;
+  u64 boot_ns;
 } lw_task;
 
 // signals sent to user space.
