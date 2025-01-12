@@ -80,14 +80,17 @@ static inline lw_blob *next_blob(lw_blob *blob) {
 // `data_len` is the length of the data to be copied (NULL not included).
 //
 // Maximum blobs supported by this function is 16.
-static s32 copy_data_to_blob(const void *src, const u16 data_len, u64 *blob_id) {
+static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id) {
+  bpf_printk("[DEBUG] data_len to copy %d", data_len);
+
+
   s32 rv = -1;
 
   if (!src || !blob_id || !data_len) {
     return rv;
   }
 
-  long data_ptr = 0;
+  u64 data_ptr = 0;
 
   *blob_id = 0;
   lw_blob * blob = reserve_blob();
@@ -97,8 +100,13 @@ static s32 copy_data_to_blob(const void *src, const u16 data_len, u64 *blob_id) 
       *blob_id = blob->header.blob_id;
     }
 
-    u16 blob_size = BLOB_SIZE - sizeof(lw_blob);
-    long result = bpf_probe_read_user(blob->data, blob_size, src + data_ptr);
+    u64 to_copy = data_len - data_ptr;
+    if (to_copy > BLOB_DATA_SIZE) {
+      to_copy = BLOB_DATA_SIZE;
+    }
+    bpf_printk("[DEBUG] copied %d", to_copy);
+
+    long result = bpf_probe_read_user(blob->data, to_copy, src + data_ptr);
 
     if (result < 0) {
       if (i == 0) {
@@ -107,8 +115,8 @@ static s32 copy_data_to_blob(const void *src, const u16 data_len, u64 *blob_id) 
       break;
     }
 
-    data_ptr += result;
-    blob->header.effective_data_size = result;
+    data_ptr += to_copy;
+    blob->header.effective_data_size = to_copy;
 
     if (data_ptr == data_len) {
       rv = 0;

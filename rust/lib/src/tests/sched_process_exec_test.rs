@@ -226,8 +226,8 @@ async fn test_process_args() {
         let mut buffer = vec![];
         let blob_id = blob_id_receiver.recv().await.expect("error receiving blob_id");
         receiver.merge_blobs(blob_id, &mut buffer).await.expect("error merging blobs");
-        print!("\n{0}", buffer.len());
-        print!("\n{0}", String::from_utf8_lossy(buffer.as_slice()));
+        print!("\n>> {0}", buffer.len());
+        print!("\n>> {0}", String::from_utf8_lossy(buffer.as_slice()));
         // assert!(has_suffix(String::from_utf8_lossy(buffer.as_slice()).as_bytes());
     });
 
@@ -247,7 +247,7 @@ async fn test_process_args() {
     }
 
     run_processes.await.expect("error running processes");
-    // merge_task.await.expect("error merging blobs");
+    merge_task.await.expect("error merging blobs");
 }
 
 fn load_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<ProbeSkel> {

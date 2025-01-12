@@ -23,8 +23,7 @@ impl lw_blob {
             header: copy_from_bytes(buf),
             data: [0; BLOB_DATA_SIZE],
         };
-        let size = result.header.effective_data_size as usize;
-        plain::copy_from_bytes(&mut result.data[..size], &buf[size_of::<lw_blob>()..])
+        plain::copy_from_bytes(&mut result.data[..BLOB_DATA_SIZE], &buf[size_of::<lw_blob_header>()..])
             .expect("corrupted data");
         result
     }
