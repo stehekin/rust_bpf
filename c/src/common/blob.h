@@ -100,7 +100,7 @@ static inline lw_blob *next_blob(lw_blob *blob) {
 // `data_len` is the length of the data to be copied (NULL not included).
 //
 // Maximum blobs supported by this function is 16.
-static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, u8 kernel_space) {
+static s32 copy_data_to_blob(const void *src, const u16 data_len, u64 *blob_id) {
   s32 rv = -1;
 
   if (!src || !blob_id || !data_len) {
@@ -118,20 +118,15 @@ static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, 
 
   *blob_id = 0;
   lw_blob * blob = reserve_blob(blob_size);
-  blob_size -= sizeof(lw_blob);
 
   for (u16 i = 0; i < MAX_BLOBS && blob; i++) {
     if (i == 0) {
       *blob_id = blob->blob_id;
     }
 
-    long result = 0;
+    blob_size = blob->blob_size - sizeof(lw_blob);
+    long result = bpf_probe_read_user(blob->data, blob_size, src + data_ptr);
 
-    if (kernel_space) {
-      result = bpf_probe_read_kernel(blob->data, blob_size, src + data_ptr);
-    } else {
-      result = bpf_probe_read_user(blob->data, blob_size, src + data_ptr);
-    }
     if (result < 0) {
       if (i == 0) {
         *blob_id = 0;
@@ -139,13 +134,8 @@ static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, 
       break;
     }
 
-    u64 copied = data_len - data_ptr;
-    if (copied > blob_size) {
-      copied = blob_size;
-    }
-
-    data_ptr += copied;
-    blob->data_size = copied;
+    data_ptr += result;
+    blob->data_size = result;
 
     if (data_ptr == data_len) {
       rv = 0;
