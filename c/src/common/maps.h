@@ -6,8 +6,7 @@
 #include <linux/bpf.h>
 #include <bpf_core_read.h>
 
-#define BLOB_SIZE_MAX BLOB_SIZE_1024
-#define BLOB_MAP_ENTRIES 1024 * BLOB_SIZE_MAX
+#define BLOB_MAP_ENTRIES 1024 * BLOB_SIZE
 #define SIGNAL_MAP_ENTRIES 1024 * 1024
 
 // `_blob_index_` is a per cpu array that saves the next blob id.

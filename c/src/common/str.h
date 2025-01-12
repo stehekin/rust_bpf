@@ -3,6 +3,7 @@
 
 #include "bpf_helpers.h"
 #include "common/blob.h"
+#include "common/types.h"
 
 // `copy_str_to_blob` copies str to blobs. This function returns
 // * 0 if it has succeeded and `blob_id` is the first blob submitted;
@@ -12,28 +13,27 @@
 // * `str_len` is the length of the str successfully copied (NULL not included). `str_len` can be null if the length is not needed.
 // * The last byte of all blobs submitted is NUL.
 // * Maximum blobs supported by this function is 16.
-static s32 copy_str_to_blob(const void *str, u64 *blob_id, u64 *str_len,  BLOB_SIZE blob_size, u8 kernel_space) {
+static s32 copy_str_to_blob(const void *str, u64 *blob_id, u64 *str_len, u8 kernel_space) {
   s32 rv = -1;
 
-  if (!str || !blob_id || !blob_size) {
+  if (!str || !blob_id) {
     return rv;
   }
 
   *blob_id = 0;
   long total_copied = 0;
 
-  lw_blob * blob = reserve_blob(blob_size);
+  lw_blob * blob = reserve_blob();
   for (u16 i = 0; i < MAX_BLOBS && blob; i++) {
     if (i == 0) {
-      *blob_id = blob->blob_id;
+      *blob_id = blob->header.blob_id;
     }
 
-    blob_size -= sizeof(lw_blob);
     long len = 0;
     if (kernel_space) {
-      len = bpf_probe_read_kernel_str(blob->data, blob_size, str + total_copied);
+      len = bpf_probe_read_kernel_str(blob->data, BLOB_DATA_SIZE, str + total_copied);
     } else {
-      len = bpf_probe_read_user_str(blob->data, blob_size, str + total_copied);
+      len = bpf_probe_read_user_str(blob->data, BLOB_DATA_SIZE, str + total_copied);
     }
     if (len < 0) {
       if (i == 0) {
@@ -46,9 +46,9 @@ static s32 copy_str_to_blob(const void *str, u64 *blob_id, u64 *str_len,  BLOB_S
 
     // Don't count the trailing NIL.
     total_copied += len - 1;
-    blob->data_size = len - 1;
+    blob->header.effective_data_size = len - 1;
 
-    if (len < blob_size) {
+    if (len < BLOB_DATA_SIZE) {
       rv = 0;
       break;
     }

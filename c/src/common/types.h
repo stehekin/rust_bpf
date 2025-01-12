@@ -8,24 +8,22 @@
 
 // Trailing NULL included.
 #define BLOBSTR_LEN 128
-
-typedef enum  {
-  BLOB_SIZE_256 = 256,
-  BLOB_SIZE_512 = 512,
-  BLOB_SIZE_1024 = 1024,
-} BLOB_SIZE;
+#define BLOB_SIZE 1024
+#define BLOB_DATA_SIZE (BLOB_SIZE - sizeof(lw_blob_header))
 
 typedef struct {
-  u8 version;
-  u8 _reserved1;
-  // blob size.
+  // blob size = 1024
   u16 blob_size;
   // Size of the effective data in the blob.
-  u16 data_size;
-  u16 _reserved2;
+  u16 effective_data_size;
+  u32 _reserved;
   u64 blob_id;
   u64 blob_next;
-  u8 data[0];
+} lw_blob_header;
+
+typedef struct {
+  lw_blob_header header;
+  u8 data[BLOB_DATA_SIZE];
 } lw_blob;
 
 typedef struct {

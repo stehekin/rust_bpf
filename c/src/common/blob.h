@@ -22,7 +22,7 @@ static inline u64 create_blob_id(u64 v) {
   return result;
 }
 
-static void* reserve_blob(BLOB_SIZE blob_size) {
+static lw_blob* reserve_blob() {
   u32 zero = 0;
   u64* blob_id = bpf_map_lookup_elem(&_blob_index_, &zero);
   if (!blob_id) {
@@ -33,35 +33,15 @@ static void* reserve_blob(BLOB_SIZE blob_size) {
   // First blob_id is 1 (skipping 0);
   *blob_id += 1;
 
-  lw_blob *blob = 0;
-
-  switch (blob_size) {
-    case BLOB_SIZE_256: {
-      blob = bpf_ringbuf_reserve(&_blob_ringbuf_, BLOB_SIZE_256, 0);
-      break;
-    }
-    case BLOB_SIZE_512: {
-      blob = bpf_ringbuf_reserve(&_blob_ringbuf_, BLOB_SIZE_512, 0);
-      break;
-    }
-    case BLOB_SIZE_1024: {
-      blob = bpf_ringbuf_reserve(&_blob_ringbuf_, BLOB_SIZE_1024, 0);
-      break;
-    }
-    default: {}
-  }
-
+  lw_blob *blob = bpf_ringbuf_reserve(&_blob_ringbuf_, BLOB_SIZE, 0);
   if (!blob) {
     return 0;
   }
 
-
-
-  blob->version = 0x01;
-  blob->blob_size = blob_size;
-  blob->data_size = 0;
-  blob->blob_id = create_blob_id(*blob_id);
-  blob->blob_next = 0;
+  blob->header.blob_size = BLOB_SIZE;
+  blob->header.effective_data_size = 0;
+  blob->header.blob_id = create_blob_id(*blob_id);
+  blob->header.blob_next = 0;
 
   bpf_map_update_elem(&_blob_index_, &zero, blob_id, BPF_ANY);
   return blob;
@@ -82,9 +62,9 @@ static inline lw_blob *next_blob(lw_blob *blob) {
     return 0;
   }
 
-  lw_blob *next = reserve_blob(blob->blob_size);
+  lw_blob *next = reserve_blob();
   if (next) {
-    blob->blob_next = next->blob_id;
+    blob->header.blob_next = next->header.blob_id;
   }
 
   submit_blob(blob);
@@ -108,23 +88,16 @@ static s32 copy_data_to_blob(const void *src, const u16 data_len, u64 *blob_id) 
   }
 
   long data_ptr = 0;
-  BLOB_SIZE blob_size = BLOB_SIZE_256;
-
-  if (data_len > BLOB_SIZE_512 - sizeof(lw_blob)) {
-    blob_size = BLOB_SIZE_1024;
-  } else if (data_len > BLOB_SIZE_256 - sizeof(lw_blob)) {
-    blob_size = BLOB_SIZE_512;
-  }
 
   *blob_id = 0;
-  lw_blob * blob = reserve_blob(blob_size);
+  lw_blob * blob = reserve_blob();
 
   for (u16 i = 0; i < MAX_BLOBS && blob; i++) {
     if (i == 0) {
-      *blob_id = blob->blob_id;
+      *blob_id = blob->header.blob_id;
     }
 
-    blob_size = blob->blob_size - sizeof(lw_blob);
+    u16 blob_size = BLOB_SIZE - sizeof(lw_blob);
     long result = bpf_probe_read_user(blob->data, blob_size, src + data_ptr);
 
     if (result < 0) {
@@ -135,7 +108,7 @@ static s32 copy_data_to_blob(const void *src, const u16 data_len, u64 *blob_id) 
     }
 
     data_ptr += result;
-    blob->data_size = result;
+    blob->header.effective_data_size = result;
 
     if (data_ptr == data_len) {
       rv = 0;
