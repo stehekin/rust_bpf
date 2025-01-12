@@ -10,10 +10,9 @@ use std::time::{Duration, Instant};
 use crate::bpf::blob::{blob_channel_groups};
 use crate::bpf::sched_process_exec;
 use crate::bpf::sched_process_exec::ProbeSkel;
-use crate::bpf::types_conv::copy_from_bytes;
 use crate::bpf::types;
-use crate::bpf::types::{lw_sigal_header, lw_signal_task};
-use crate::bpf::types_conv::lw_blob_with_data;
+use crate::bpf::types::{lw_sigal_header, lw_signal_task, lw_blob};
+use crate::bpf::types_conv::copy_from_bytes;
 
 fn has_suffix(name: &[u8], suffix: &[u8]) -> bool {
     if let Some(position) = name.windows(suffix.len()).position(|window| window == suffix) {
@@ -79,7 +78,7 @@ async fn test_process_long_filename() {
     let exit1 = exit.clone();
 
     rbb.add(&skel.maps._blob_ringbuf_,   move |data| -> i32 {
-        let data = lw_blob_with_data::copy_from_bytes(data);
+        let data = lw_blob::copy_from_bytes(data);
         let _ = sender.send_blocking(data);
         0
     }).unwrap();
@@ -199,7 +198,7 @@ async fn test_process_args() {
     let exit1 = exit.clone();
 
     rbb.add(&skel.maps._blob_ringbuf_,   move |data| -> i32 {
-        let data = lw_blob_with_data::copy_from_bytes(data);
+        let data = lw_blob::copy_from_bytes(data);
         let _ = sender.send_blocking(data);
         0
     }).unwrap();

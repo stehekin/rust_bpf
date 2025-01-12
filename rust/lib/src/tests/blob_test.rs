@@ -1,15 +1,14 @@
 use rand::Rng;
 use crate::bpf::blob::{BlobReceiver, merge_blobs, seq_to_blob_id, blob_channel_groups};
-use crate::bpf::types_conv::lw_blob_with_data;
+use crate::bpf::types::lw_blob;
 
-
-fn fake_blob(cpu: usize, sequence: u64, next: u64, data: Option<&[u8]>) -> lw_blob_with_data {
-    let mut blob = lw_blob_with_data::default();
+fn fake_blob(cpu: usize, sequence: u64, next: u64, data: Option<&[u8]>) -> lw_blob {
+    let mut blob = lw_blob::default();
     blob.header.blob_id = seq_to_blob_id(cpu, sequence);
     blob.header.blob_next = seq_to_blob_id(cpu, next);
 
     if let Some(data) = data {
-        blob.header.data_size = data.len() as u16;
+        blob.header.effective_data_size = data.len() as u16;
         blob.data[0..data.len()].copy_from_slice(data);
     }
 

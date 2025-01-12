@@ -5,37 +5,8 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)]
 
-#[repr(C)]
-#[derive(Default)]
-pub struct __IncompleteArrayField<T>(::std::marker::PhantomData<T>, [T; 0]);
-impl<T> __IncompleteArrayField<T> {
-    #[inline]
-    pub const fn new() -> Self {
-        __IncompleteArrayField(::std::marker::PhantomData, [])
-    }
-    #[inline]
-    pub fn as_ptr(&self) -> *const T {
-        self as *const _ as *const T
-    }
-    #[inline]
-    pub fn as_mut_ptr(&mut self) -> *mut T {
-        self as *mut _ as *mut T
-    }
-    #[inline]
-    pub unsafe fn as_slice(&self, len: usize) -> &[T] {
-        ::std::slice::from_raw_parts(self.as_ptr(), len)
-    }
-    #[inline]
-    pub unsafe fn as_mut_slice(&mut self, len: usize) -> &mut [T] {
-        ::std::slice::from_raw_parts_mut(self.as_mut_ptr(), len)
-    }
-}
-impl<T> ::std::fmt::Debug for __IncompleteArrayField<T> {
-    fn fmt(&self, fmt: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-        fmt.write_str("__IncompleteArrayField")
-    }
-}
 pub const BLOBSTR_LEN: u32 = 128;
+pub const BLOB_SIZE: u32 = 1024;
 pub type __u8 = ::std::os::raw::c_uchar;
 pub type __u16 = ::std::os::raw::c_ushort;
 pub type __u32 = ::std::os::raw::c_uint;
@@ -44,84 +15,57 @@ pub type u8_ = __u8;
 pub type u16_ = __u16;
 pub type u32_ = __u32;
 pub type u64_ = __u64;
-pub const BLOB_SIZE_BLOB_SIZE_256: BLOB_SIZE = 256;
-pub const BLOB_SIZE_BLOB_SIZE_512: BLOB_SIZE = 512;
-pub const BLOB_SIZE_BLOB_SIZE_1024: BLOB_SIZE = 1024;
-pub type BLOB_SIZE = ::std::os::raw::c_uint;
 #[repr(C)]
-#[derive(Debug, Default)]
-pub struct lw_blob {
-    pub version: u8_,
-    pub _reserved1: u8_,
+#[derive(Debug, Default, Copy, Clone)]
+pub struct lw_blob_header {
     pub blob_size: u16_,
-    pub data_size: u16_,
-    pub _reserved2: u16_,
+    pub effective_data_size: u16_,
+    pub _reserved: u32_,
     pub blob_id: u64_,
     pub blob_next: u64_,
-    pub data: __IncompleteArrayField<u8_>,
 }
 #[test]
-fn bindgen_test_layout_lw_blob() {
-    const UNINIT: ::std::mem::MaybeUninit<lw_blob> = ::std::mem::MaybeUninit::uninit();
+fn bindgen_test_layout_lw_blob_header() {
+    const UNINIT: ::std::mem::MaybeUninit<lw_blob_header> = ::std::mem::MaybeUninit::uninit();
     let ptr = UNINIT.as_ptr();
     assert_eq!(
-        ::std::mem::size_of::<lw_blob>(),
+        ::std::mem::size_of::<lw_blob_header>(),
         24usize,
-        concat!("Size of: ", stringify!(lw_blob))
+        concat!("Size of: ", stringify!(lw_blob_header))
     );
     assert_eq!(
-        ::std::mem::align_of::<lw_blob>(),
+        ::std::mem::align_of::<lw_blob_header>(),
         8usize,
-        concat!("Alignment of ", stringify!(lw_blob))
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).version) as usize - ptr as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lw_blob),
-            "::",
-            stringify!(version)
-        )
-    );
-    assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr)._reserved1) as usize - ptr as usize },
-        1usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(lw_blob),
-            "::",
-            stringify!(_reserved1)
-        )
+        concat!("Alignment of ", stringify!(lw_blob_header))
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).blob_size) as usize - ptr as usize },
-        2usize,
+        0usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_blob),
+            stringify!(lw_blob_header),
             "::",
             stringify!(blob_size)
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).data_size) as usize - ptr as usize },
-        4usize,
+        unsafe { ::std::ptr::addr_of!((*ptr).effective_data_size) as usize - ptr as usize },
+        2usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_blob),
+            stringify!(lw_blob_header),
             "::",
-            stringify!(data_size)
+            stringify!(effective_data_size)
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr)._reserved2) as usize - ptr as usize },
-        6usize,
+        unsafe { ::std::ptr::addr_of!((*ptr)._reserved) as usize - ptr as usize },
+        4usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_blob),
+            stringify!(lw_blob_header),
             "::",
-            stringify!(_reserved2)
+            stringify!(_reserved)
         )
     );
     assert_eq!(
@@ -129,7 +73,7 @@ fn bindgen_test_layout_lw_blob() {
         8usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_blob),
+            stringify!(lw_blob_header),
             "::",
             stringify!(blob_id)
         )
@@ -139,9 +83,40 @@ fn bindgen_test_layout_lw_blob() {
         16usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_blob),
+            stringify!(lw_blob_header),
             "::",
             stringify!(blob_next)
+        )
+    );
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct lw_blob {
+    pub header: lw_blob_header,
+    pub data: [u8_; 1000usize],
+}
+#[test]
+fn bindgen_test_layout_lw_blob() {
+    const UNINIT: ::std::mem::MaybeUninit<lw_blob> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<lw_blob>(),
+        1024usize,
+        concat!("Size of: ", stringify!(lw_blob))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<lw_blob>(),
+        8usize,
+        concat!("Alignment of ", stringify!(lw_blob))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).header) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_blob),
+            "::",
+            stringify!(header)
         )
     );
     assert_eq!(
@@ -154,6 +129,15 @@ fn bindgen_test_layout_lw_blob() {
             stringify!(data)
         )
     );
+}
+impl Default for lw_blob {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
 }
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]

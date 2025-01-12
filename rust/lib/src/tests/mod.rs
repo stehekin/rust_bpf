@@ -1,9 +1,15 @@
 #[cfg(test)]
 mod file_open_test;
+#[cfg(test)]
 mod bprm_committed_creds_test;
+#[cfg(test)]
 mod sched_process_exec_test;
+#[cfg(test)]
 mod resources;
+#[cfg(test)]
 mod blob_test;
+
+#[cfg(test)]
 mod utils {
     use anyhow::{bail, Context, Result};
     use tempfile;
