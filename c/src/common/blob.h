@@ -14,7 +14,7 @@
 #include <bpf_helpers.h>
 #include <bpf_tracing.h>
 
-#define MAX_BLOBS 16
+#define MAX_BLOBS 32
 
 static inline u64 create_blob_id(u64 v) {
   u64 cpu_id = bpf_get_smp_processor_id();
@@ -77,13 +77,10 @@ static inline lw_blob *next_blob(lw_blob *blob) {
 //
 // `blob_id` is the first blob submitted, even if the function has failed.
 // If no blobs are submitted, `blob_id` is 0.
-// `data_len` is the length of the data to be copied (NULL not included).
+// `data_len` is the length of the data to be copied.
 //
-// Maximum blobs supported by this function is 16.
-static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id) {
-  bpf_printk("[DEBUG] data_len to copy %d", data_len);
-
-
+// Maximum blobs supported by this function is 32.
+static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, bool is_kernel) {
   s32 rv = -1;
 
   if (!src || !blob_id || !data_len) {
@@ -95,6 +92,8 @@ static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id) 
   *blob_id = 0;
   lw_blob * blob = reserve_blob();
 
+  // Without unroll, we cannot support 32 MAX_BLOBS.
+  #pragma unroll
   for (u16 i = 0; i < MAX_BLOBS && blob; i++) {
     if (i == 0) {
       *blob_id = blob->header.blob_id;
@@ -104,9 +103,14 @@ static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id) 
     if (to_copy > BLOB_DATA_SIZE) {
       to_copy = BLOB_DATA_SIZE;
     }
-    bpf_printk("[DEBUG] copied %d", to_copy);
 
-    long result = bpf_probe_read_user(blob->data, to_copy, src + data_ptr);
+    long result = 0;
+
+    if (is_kernel) {
+      bpf_probe_read_kernel(blob->data, to_copy, src + data_ptr);
+    } else {
+      bpf_probe_read_user(blob->data, to_copy, src + data_ptr);
+    }
 
     if (result < 0) {
       if (i == 0) {
