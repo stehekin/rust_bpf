@@ -14,6 +14,8 @@ use crate::bpf::types;
 use crate::bpf::types::{lw_sigal_header, lw_signal_task, lw_blob};
 use crate::bpf::types_conv::copy_from_bytes;
 
+// Tests in this file can only be run sequentially.
+// Run it using `cargo test -- --nocapture --test-threads=1`.
 fn has_suffix(name: &[u8], suffix: &[u8]) -> bool {
     if let Some(position) = name.windows(suffix.len()).position(|window| window == suffix) {
         position + suffix.len() == name.len() || name[position + suffix.len()] == 0
@@ -44,7 +46,10 @@ async fn test_process_regular() {
                     assert_eq!(task.body.pid.pid, task.body.pid.pid_vnr, "{0} != {1}", task.body.pid.pid, task.body.pid.pid_vnr);
                     assert_ne!(task.body.exec.filename.blob.flag, 0);
                 }
-                *exit1.borrow_mut() = has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_exit".as_bytes());
+
+                if !*exit1.borrow() {
+                    *exit1.borrow_mut() = has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_exit".as_bytes());
+                }
             }
         }
         return 0;
@@ -100,7 +105,10 @@ async fn test_process_long_filename() {
                     assert_eq!(task.body.exec.filename.blob.flag, 0, "{0} != 0", task.body.exec.filename.blob.flag);
                     blob_id_sender.send_blocking(task.body.exec.filename.blob.blob_id).expect("error sending blob_id");
                 }
-                *exit1.borrow_mut() = has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_exit".as_bytes());
+
+                if !*exit1.borrow() {
+                    *exit1.borrow_mut() = has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_exit".as_bytes());
+                }
             }
         }
         0
@@ -164,7 +172,9 @@ async fn test_process_unshare() {
                     assert!(has_suffix(task.body.exec.filename.str_.as_slice(), "date".as_bytes()))
                 }
 
-                *exit1.borrow_mut() = has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_exit".as_bytes());
+                if !*exit1.borrow() {
+                    *exit1.borrow_mut() = has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_exit".as_bytes());
+                }
             }
         }
         return 0;
@@ -214,9 +224,11 @@ async fn test_process_args() {
                 assert_ne!(task.body.pid.pid_ns, 0);
 
                 if has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_regular".as_bytes()) {
-                    blob_id_sender.send_blocking(task.body.exec.env).expect("error sending args blob_id");
+                    blob_id_sender.send_blocking(task.body.exec.args).expect("error sending args blob_id");
                 }
-                *exit1.borrow_mut() = has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_exit".as_bytes());
+                if !*exit1.borrow() {
+                    *exit1.borrow_mut() = has_suffix(task.body.exec.filename.str_.as_slice(), ".lw_exit".as_bytes())
+                }
             }
         }
         0
@@ -226,9 +238,6 @@ async fn test_process_args() {
         let mut buffer = vec![];
         let blob_id = blob_id_receiver.recv().await.expect("error receiving blob_id");
         receiver.merge_blobs(blob_id, &mut buffer).await.expect("error merging blobs");
-        print!("\n>> {0}", buffer.len());
-        print!("\n>> {0}", String::from_utf8_lossy(buffer.as_slice()));
-        // assert!(has_suffix(String::from_utf8_lossy(buffer.as_slice()).as_bytes());
     });
 
     let run_processes = tokio::spawn(async move {
@@ -238,7 +247,7 @@ async fn test_process_args() {
 
     let rb = rbb.build().unwrap();
     let now = Instant::now();
-    let deadline = Duration::from_secs(15);
+    let deadline = Duration::from_secs(5);
     loop {
         rb.poll(Duration::from_secs(1)).expect("ringbuffer polling error");
         if *exit.borrow() || now.elapsed().ge(&deadline) {

@@ -38,8 +38,8 @@ typedef int __kernel_pid_t;
 typedef __kernel_pid_t pid_t;
 
 typedef enum {
-  false = 0,
-  true = 1
+  False = 0,
+  True = 1,
 } bool;
 
 #endif

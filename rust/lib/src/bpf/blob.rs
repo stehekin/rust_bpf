@@ -11,13 +11,11 @@ pub(crate) async fn merge_blobs(blob_id: u64, buffer: &mut Vec<u8>, retriever: &
     let mut blob_id = blob_id;
     loop {
         let (_, seq) = blob_id_to_seq(blob_id);
-        println!("sequence {0}", seq);
         if seq == 0 {
             return Ok(());
         }
 
         if let Some(blob) = retriever.retrieve(blob_id).await.context("error retrieving blob")? {
-            println!("data_size {0}", blob.header.effective_data_size);
             buffer.extend_from_slice(&blob.data[..blob.header.effective_data_size as usize]);
             blob_id = blob.header.blob_next;
         } else {

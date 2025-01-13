@@ -13,36 +13,37 @@
 // * `str_len` is the length of the str successfully copied (NULL not included). `str_len` can be null if the length is not needed.
 // * The last byte of all blobs submitted is NUL.
 // * Maximum blobs supported by this function is 16.
-static s32 copy_str_to_blob(const void *str, u64 *blob_id, u64 *str_len, u8 kernel_space) {
+static s32 copy_str_to_blob(const void *str, u64 *blob_id, u64 *str_len, bool is_kernel) {
   s32 rv = -1;
 
   if (!str || !blob_id) {
     return rv;
   }
 
-  *blob_id = 0;
   long total_copied = 0;
 
+  *blob_id = 0;
   lw_blob * blob = reserve_blob();
+
+  #pragma unroll
   for (u16 i = 0; i < MAX_BLOBS && blob; i++) {
     if (i == 0) {
       *blob_id = blob->header.blob_id;
     }
 
     long len = 0;
-    if (kernel_space) {
+    if (is_kernel) {
       len = bpf_probe_read_kernel_str(blob->data, BLOB_DATA_SIZE, str + total_copied);
     } else {
       len = bpf_probe_read_user_str(blob->data, BLOB_DATA_SIZE, str + total_copied);
     }
+
     if (len < 0) {
       if (i == 0) {
         *blob_id = 0;
       }
       break;
     }
-
-    bpf_printk("[DEBUG] %s", blob->data);
 
     // Don't count the trailing NIL.
     total_copied += len - 1;
