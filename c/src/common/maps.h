@@ -4,6 +4,7 @@
 #include "common/types.h"
 
 #include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
 #include <bpf_core_read.h>
 
 #define BLOB_MAP_ENTRIES 1024 * BLOB_SIZE
