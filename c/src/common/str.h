@@ -12,7 +12,7 @@
 // Notes:
 // * `str_len` is the length of the str successfully copied (NULL not included). `str_len` can be null if the length is not needed.
 // * The last byte of all blobs submitted is NUL.
-// * Maximum blobs supported by this function is 16.
+// * Maximum blobs supported by this function is MAX_BLOBS.
 static s32 copy_str_to_blob(const void *str, u64 *blob_id, u64 *str_len, bool is_kernel) {
   s32 rv = -1;
 

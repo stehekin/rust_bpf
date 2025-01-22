@@ -14,7 +14,7 @@
 #include <bpf_helpers.h>
 #include <bpf_tracing.h>
 
-#define MAX_BLOBS 12
+#define MAX_BLOBS 16
 
 static inline u64 create_blob_id(u64 v) {
   u64 cpu_id = bpf_get_smp_processor_id();
@@ -79,7 +79,7 @@ static inline lw_blob *next_blob(lw_blob *blob) {
 // If no blobs are submitted, `blob_id` is 0.
 // `data_len` is the length of the data to be copied.
 //
-// Maximum blobs supported by this function is 16.
+// Maximum blobs supported by this function is MAX_BLOBS.
 static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, bool is_kernel) {
   s32 rv = -1;
 
