@@ -15,6 +15,18 @@
 #include <bpf_tracing.h>
 
 #define MAX_BLOBS 16
+#define BLOB_LOOP_CONTINUE 0
+#define BLOB_LOOP_BREAK 1
+
+typedef struct {
+    u64 data_len;
+    u64 data_ptr;
+    u64 *blob_id;
+    void *src;
+    bool is_kernel;
+    lw_blob *blob;
+    s32 rv;
+} blob_loop_context;
 
 static inline u64 create_blob_id(u64 v) {
   u64 cpu_id = bpf_get_smp_processor_id();
@@ -71,6 +83,54 @@ static inline lw_blob *next_blob(lw_blob *blob) {
   return next;
 }
 
+static long blob_loop_func(u32 i, blob_loop_context *ctx) {
+    if (!ctx->blob) {
+        return BLOB_LOOP_BREAK;
+    }
+
+    if (i == 0) {
+      *(ctx->blob_id) = ctx->blob->header.blob_id;
+    }
+
+    u64 to_copy = ctx->data_len - ctx->data_ptr;
+    if (to_copy > BLOB_DATA_SIZE) {
+      to_copy = BLOB_DATA_SIZE;
+    }
+
+    long result = 0;
+
+    if (ctx->is_kernel) {
+      result = bpf_probe_read_kernel(ctx->blob->data, to_copy, ctx->src + ctx->data_ptr);
+    } else {
+      result = bpf_probe_read_user(ctx->blob->data, to_copy, ctx->src + ctx->data_ptr);
+    }
+
+    if (result < 0) {
+      if (i == 0) {
+        *(ctx->blob_id) = 0;
+      }
+      return BLOB_LOOP_BREAK;
+    }
+
+    ctx->data_ptr += to_copy;
+    ctx->blob->header.effective_data_size = to_copy;
+
+    if (ctx->data_ptr == ctx->data_len) {
+      ctx->rv = 0;
+      return BLOB_LOOP_BREAK;
+    }
+
+    // MAX_BLOBS allocated.
+    if (i == MAX_BLOBS - 1) {
+      submit_blob(ctx->blob);
+      ctx->blob = 0;
+      return BLOB_LOOP_BREAK;
+    }
+
+    ctx->blob = next_blob(ctx->blob);
+    return BLOB_LOOP_CONTINUE;
+}
+
 // `copy_data_to_blob` copies data to blobs. This function returns
 // * 0 if it has succeeded;
 // * -1 if it has failed;
@@ -81,71 +141,34 @@ static inline lw_blob *next_blob(lw_blob *blob) {
 //
 // Maximum blobs supported by this function is MAX_BLOBS.
 static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, bool is_kernel) {
-  s32 rv = -1;
-
   if (!src || !blob_id || !data_len) {
-    return rv;
+    return -1;
   }
 
-  u64 data_ptr = 0;
-
+  u32 key = 0;
   *blob_id = 0;
-  lw_blob * blob = reserve_blob();
 
-  #pragma unroll
-  for (u16 i = 0; i < MAX_BLOBS && blob; i++) {
-    if (i == 0) {
-      *blob_id = blob->header.blob_id;
-    }
+  blob_loop_context ctx  = {
+      .src = (void *)src,
+      .data_len = data_len,
+      .blob_id = blob_id,
+      .is_kernel = is_kernel,
+      .rv = -1,
+      .data_ptr = 0,
+      .blob = 0,
+  };
 
-    u64 to_copy = data_len - data_ptr;
-    if (to_copy > BLOB_DATA_SIZE) {
-      to_copy = BLOB_DATA_SIZE;
-    }
+  bpf_loop(MAX_BLOBS, blob_loop_func, &ctx, 0);
 
-    long result = 0;
-
-    if (is_kernel) {
-      bpf_probe_read_kernel(blob->data, to_copy, src + data_ptr);
+  if (ctx.blob) {
+    if (ctx.rv == 0) {
+      submit_blob(ctx.blob);
     } else {
-      bpf_probe_read_user(blob->data, to_copy, src + data_ptr);
-    }
-
-    if (result < 0) {
-      if (i == 0) {
-        *blob_id = 0;
-      }
-      break;
-    }
-
-    data_ptr += to_copy;
-    blob->header.effective_data_size = to_copy;
-
-    if (data_ptr == data_len) {
-      rv = 0;
-      break;
-    }
-
-    // MAX_BLOBS allocated.
-    if (i == MAX_BLOBS - 1) {
-      submit_blob(blob);
-      blob = 0;
-      break;
-    }
-
-    blob = next_blob(blob);
-  }
-
-  if (blob) {
-    if (rv == 0) {
-      submit_blob(blob);
-    } else {
-      discard_blob(blob);
+      discard_blob(ctx.blob);
     }
   }
 
-  return rv;
+  return ctx.rv;
 }
-
 
 #endif
