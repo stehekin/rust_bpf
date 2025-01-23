@@ -1,9 +1,43 @@
 #ifndef __LW_STR_H__
 #define __LW_STR_H__
 
-#include "bpf_helpers.h"
 #include "common/blob.h"
 #include "common/types.h"
+
+static long str_copy_loop_func(u32 i, blob_loop_context *ctx) {
+    lw_blob *blob = reserve_blob_with_id(ctx->blob_id);
+
+    if (!blob) {
+        return BLOB_LOOP_BREAK;
+    }
+
+    long len = 0;
+    if (ctx->is_kernel) {
+      len = bpf_probe_read_kernel_str(blob->data, BLOB_DATA_SIZE, ctx->src + ctx->data_ptr);
+    } else {
+      len = bpf_probe_read_user_str(blob->data, BLOB_DATA_SIZE, ctx->src + ctx->data_ptr);
+    }
+
+    if (len < 0) {
+        discard_blob(blob);
+        return BLOB_LOOP_BREAK;
+    }
+
+    // Don't count the trailing NIL.
+    ctx->data_ptr += len - 1;
+    blob->header.effective_data_size = len - 1;
+
+    if (len < BLOB_DATA_SIZE || len == 1) {
+        submit_blob(blob);
+      ctx->return_value = 0;
+      return BLOB_LOOP_BREAK;
+    }
+
+    ctx->blob_id = i < MAX_BLOBS - 1 ? next_blob_id() : 0;
+    blob->header.blob_next = ctx->blob_id;
+    submit_blob(blob);
+    return BLOB_LOOP_CONTINUE;
+}
 
 // `copy_str_to_blob` copies str to blobs. This function returns
 // * 0 if it has succeeded and `blob_id` is the first blob submitted;
@@ -14,76 +48,22 @@
 // * The last byte of all blobs submitted is NUL.
 // * Maximum blobs supported by this function is MAX_BLOBS.
 static s32 copy_str_to_blob(const void *str, u64 *blob_id, u64 *str_len, bool is_kernel) {
-  s32 rv = -1;
-
   if (!str || !blob_id) {
-    return rv;
+    return -1;
   }
 
   long total_copied = 0;
 
-  *blob_id = 0;
-  lw_blob * blob = reserve_blob();
+  blob_loop_context ctx  = {
+      .src = (void *)str,
+      .data_ptr = 0,
+      .blob_id = next_blob_id(),
+      .is_kernel = is_kernel,
+      .return_value = -1,
+  };
 
-  #pragma unroll
-  for (u16 i = 0; i < MAX_BLOBS && blob; i++) {
-    if (i == 0) {
-      *blob_id = blob->header.blob_id;
-    }
-
-    long len = 0;
-    if (is_kernel) {
-      len = bpf_probe_read_kernel_str(blob->data, BLOB_DATA_SIZE, str + total_copied);
-    } else {
-      len = bpf_probe_read_user_str(blob->data, BLOB_DATA_SIZE, str + total_copied);
-    }
-
-    if (len < 0) {
-      if (i == 0) {
-        *blob_id = 0;
-      }
-      break;
-    }
-
-    // Don't count the trailing NIL.
-    total_copied += len - 1;
-    blob->header.effective_data_size = len - 1;
-
-    if (len < BLOB_DATA_SIZE) {
-      rv = 0;
-      break;
-    }
-
-    u8 last;
-    bpf_probe_read_kernel(&last, 1, str + total_copied);
-    // No more blobs needed.
-    if (last == 0) {
-      rv = 0;
-      break;
-    }
-
-    // MAX_BLOBS allocated.
-    if (i == MAX_BLOBS - 1) {
-      submit_blob(blob);
-      blob = 0;
-      break;
-    }
-
-    blob = next_blob(blob);
-  }
-
-  if (blob) {
-    if (rv == 0) {
-      if (str_len) {
-        *str_len = total_copied;
-      }
-      submit_blob(blob);
-    } else {
-      discard_blob(blob);
-    }
-  }
-
-  return rv;
+  bpf_loop(MAX_BLOBS, str_copy_loop_func, &ctx, 0);
+  return ctx.return_value;
 }
 
 // `copy_str` copies str to the `dest`. This function returns
