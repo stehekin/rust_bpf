@@ -155,7 +155,7 @@ static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, 
       .is_kernel = is_kernel,
       .rv = -1,
       .data_ptr = 0,
-      .blob = 0,
+      .blob = reserve_blob(),
   };
 
   bpf_loop(MAX_BLOBS, blob_loop_func, &ctx, 0);
