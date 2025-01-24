@@ -52,12 +52,13 @@ static s32 copy_str_to_blob(const void *str, u64 *blob_id, u64 *str_len, bool is
     return -1;
   }
 
+  *blob_id = next_blob_id();
   long total_copied = 0;
 
   blob_loop_context ctx  = {
       .src = (void *)str,
       .data_ptr = 0,
-      .blob_id = next_blob_id(),
+      .blob_id = *blob_id,
       .is_kernel = is_kernel,
       .return_value = -1,
   };

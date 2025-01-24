@@ -167,12 +167,12 @@ static s32 copy_data_to_blob(const void *src, const u64 data_len, u64 *blob_id, 
   }
 
   u32 key = 0;
-  *blob_id = 0;
+  *blob_id = next_blob_id();
 
   blob_loop_context ctx  = {
       .src = (void *)src,
       .data_len = data_len,
-      .blob_id = next_blob_id(),
+      .blob_id = *blob_id,
       .is_kernel = is_kernel,
       .return_value = -1,
       .data_ptr = 0,
