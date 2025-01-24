@@ -61,55 +61,12 @@ static lw_blob* reserve_blob_with_id(u64 blob_id) {
     return blob;
 }
 
-// To be deprecated.
-static lw_blob* reserve_blob() {
-  u32 zero = 0;
-  u64* blob_id = bpf_map_lookup_elem(&_blob_index_, &zero);
-  if (!blob_id) {
-    // Cannot happen.
-    return 0;
-  }
-
-  // First blob_id is 1 (skipping 0);
-  *blob_id += 1;
-
-  lw_blob *blob = bpf_ringbuf_reserve(&_blob_ringbuf_, BLOB_SIZE, 0);
-  if (!blob) {
-    return 0;
-  }
-
-  blob->header.blob_size = BLOB_SIZE;
-  blob->header.effective_data_size = 0;
-  blob->header.blob_id = create_blob_id(*blob_id);
-  blob->header.blob_next = 0;
-
-  bpf_map_update_elem(&_blob_index_, &zero, blob_id, BPF_ANY);
-  return blob;
-}
-
 static inline void submit_blob(lw_blob *blob) {
     bpf_ringbuf_submit(blob, 0);
 }
 
 static inline void discard_blob(lw_blob *blob) {
     bpf_ringbuf_discard(blob, 0);
-}
-
-// To be deprecated.
-// `next_blob` reserves a new blob and links it to `blob`. The new blob has the same size of the given `blob`.
-// `next_blob` submits the given `blob`.
-static inline lw_blob *next_blob(lw_blob *blob) {
-  if (!blob) {
-    return 0;
-  }
-
-  lw_blob *next = reserve_blob();
-  if (next) {
-    blob->header.blob_next = next->header.blob_id;
-  }
-
-  submit_blob(blob);
-  return next;
 }
 
 static long blob_loop_func(u32 i, blob_loop_context *ctx) {
