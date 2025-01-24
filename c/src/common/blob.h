@@ -48,7 +48,7 @@ static inline u64 next_blob_id() {
 }
 
 static lw_blob* reserve_blob_with_id(u64 blob_id) {
-    lw_blob *blob = bpf_ringbuf_reserve(&_blob_ringbuf_, BLOB_SIZE, 0);
+    lw_blob *blob = bpf_ringbuf_reserve(&blob_ringbuf, BLOB_SIZE, 0);
     if (!blob) {
       return 0;
     }

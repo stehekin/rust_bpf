@@ -18,7 +18,7 @@ static inline void init_header(lw_sigal_header *header, lw_signal_type signal_ty
 }
 
 static inline void submit_task(const lw_task *task) {
-  lw_signal_task *signal_task = bpf_ringbuf_reserve(&_signal_ringbuf_, sizeof(lw_signal_task), 0);
+  lw_signal_task *signal_task = bpf_ringbuf_reserve(&signal_ringbuf, sizeof(lw_signal_task), 0);
   if (!signal_task) {
     return;
   }

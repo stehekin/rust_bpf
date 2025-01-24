@@ -52,6 +52,7 @@ typedef union {
 typedef struct {
   lw_blobstr filename;
   lw_blobstr interp;
+  u64 cgroup_id;
   u64 args;
   u64 env;
 } lw_exec;
@@ -66,6 +67,8 @@ typedef struct {
   lw_creds creds;
   lw_pid pid;
   lw_parent parent;
+  u32 session_id;
+  u32 login_uid;
   lw_exec exec;
   u64 boot_ns;
 } lw_task;

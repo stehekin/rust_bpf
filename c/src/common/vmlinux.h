@@ -266,6 +266,7 @@ struct task_struct {
   struct mm_struct		*mm;
   struct pid *thread_pid;
   struct nsproxy *nsproxy;
+  unsigned int sessionid;
 };
 
 #ifndef BPF_NO_PRESERVE_ACCESS_INDEX

@@ -362,6 +362,7 @@ impl Default for lw_blobstr {
 pub struct lw_exec {
     pub filename: lw_blobstr,
     pub interp: lw_blobstr,
+    pub cgroup_id: u64_,
     pub args: u64_,
     pub env: u64_,
 }
@@ -371,7 +372,7 @@ fn bindgen_test_layout_lw_exec() {
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<lw_exec>(),
-        272usize,
+        280usize,
         concat!("Size of: ", stringify!(lw_exec))
     );
     assert_eq!(
@@ -400,8 +401,18 @@ fn bindgen_test_layout_lw_exec() {
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).args) as usize - ptr as usize },
+        unsafe { ::std::ptr::addr_of!((*ptr).cgroup_id) as usize - ptr as usize },
         256usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_exec),
+            "::",
+            stringify!(cgroup_id)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).args) as usize - ptr as usize },
+        264usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_exec),
@@ -411,7 +422,7 @@ fn bindgen_test_layout_lw_exec() {
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).env) as usize - ptr as usize },
-        264usize,
+        272usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_exec),
@@ -487,6 +498,8 @@ pub struct lw_task {
     pub creds: lw_creds,
     pub pid: lw_pid,
     pub parent: lw_parent,
+    pub session_id: u32_,
+    pub login_uid: u32_,
     pub exec: lw_exec,
     pub boot_ns: u64_,
 }
@@ -496,7 +509,7 @@ fn bindgen_test_layout_lw_task() {
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<lw_task>(),
-        328usize,
+        344usize,
         concat!("Size of: ", stringify!(lw_task))
     );
     assert_eq!(
@@ -535,8 +548,28 @@ fn bindgen_test_layout_lw_task() {
         )
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).exec) as usize - ptr as usize },
+        unsafe { ::std::ptr::addr_of!((*ptr).session_id) as usize - ptr as usize },
         48usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_task),
+            "::",
+            stringify!(session_id)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).login_uid) as usize - ptr as usize },
+        52usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(lw_task),
+            "::",
+            stringify!(login_uid)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).exec) as usize - ptr as usize },
+        56usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_task),
@@ -546,7 +579,7 @@ fn bindgen_test_layout_lw_task() {
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).boot_ns) as usize - ptr as usize },
-        320usize,
+        336usize,
         concat!(
             "Offset of field: ",
             stringify!(lw_task),
@@ -652,7 +685,7 @@ fn bindgen_test_layout_lw_signal_task() {
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<lw_signal_task>(),
-        344usize,
+        360usize,
         concat!("Size of: ", stringify!(lw_signal_task))
     );
     assert_eq!(

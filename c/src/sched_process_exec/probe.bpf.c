@@ -40,7 +40,7 @@ static s32 copy_str_blobstr(lw_blobstr *dest, const char *src) {
 SEC("raw_tracepoint/sched_process_exec")
 int BPF_PROG(sched_process_exec, struct task_struct *_ignore, pid_t old_pid, struct linux_binprm*bprm) {
   struct task_struct *current = bpf_get_current_task_btf();
-  lw_task *task = bpf_task_storage_get(&_lw_task_storage, current, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
+  lw_task *task = bpf_task_storage_get(&_lw_task_storage_, current, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
   if (!task) {
     return 0;
   }
@@ -51,6 +51,7 @@ int BPF_PROG(sched_process_exec, struct task_struct *_ignore, pid_t old_pid, str
   get_task_parent(current_parent, &task->parent);
   get_task_creds(current, &task->creds);
   get_task_proc(current, &task->pid);
+
 
   lw_exec *exec = &task->exec;
 
@@ -65,10 +66,12 @@ int BPF_PROG(sched_process_exec, struct task_struct *_ignore, pid_t old_pid, str
   u64 env_end = BPF_CORE_READ(current, mm, env_end);
   copy_data_to_blob((void *)env_start, env_end - env_start, &exec->env, False);
 
-  bpf_printk("[DEBU] arg %d", exec->args);
-  bpf_printk("[DEBU] env %d", exec->env);
+  exec->cgroup_id = bpf_get_current_cgroup_id();
 
   task->boot_ns = BPF_CORE_READ(current, start_boottime);
+
+  task->login_uid = BPF_CORE_READ(current, loginuid.val);
+  task->session_id = BPF_CORE_READ(current, sessionid);
 
   submit_task(task);
   return 0;

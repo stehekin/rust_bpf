@@ -23,18 +23,18 @@ struct {
 struct {
   __uint(type, BPF_MAP_TYPE_RINGBUF);
   __uint(max_entries, BLOB_MAP_ENTRIES);
-} _blob_ringbuf_ SEC(".maps");
+} blob_ringbuf SEC(".maps");
 
 struct {
   __uint(type, BPF_MAP_TYPE_TASK_STORAGE);
   __uint(map_flags, BPF_F_NO_PREALLOC);
   __type(key, u32);
   __type(value, lw_task);
-} _lw_task_storage SEC(".maps");
+} _lw_task_storage_ SEC(".maps");
 
 struct {
   __uint(type, BPF_MAP_TYPE_RINGBUF);
   __uint(max_entries, SIGNAL_MAP_ENTRIES);
-} _signal_ringbuf_ SEC(".maps");
+} signal_ringbuf SEC(".maps");
 
 #endif
