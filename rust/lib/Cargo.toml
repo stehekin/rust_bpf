@@ -18,7 +18,13 @@ async-channel = "2.3"
 bindgen = "0.70"
 libbpf-rs = "0.24"
 libbpf-sys = "1.5"
+log = "0.4.25"
 num_cpus = "1"
 plain = "0.2"
-tokio = { version = "1.4", features = ["rt-multi-thread", "macros", "time"] }
+tokio = { version = "1.4", features = [
+    "macros",
+    "rt-multi-thread",
+    "sync",
+    "time",
+] }
 rand = "0.9.0-beta.1"
