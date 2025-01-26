@@ -18,6 +18,7 @@ fn fake_blob(cpu: usize, sequence: u64, next: u64, data: Option<&[u8]>) -> lw_bl
     blob
 }
 
+// `test_blob_reader` picks a random blob from a blob sequence.
 #[tokio::test]
 async fn test_blob_reader() {
     let (blob_id_sender, blob_id_receiver) = unbounded_channel();
@@ -28,7 +29,7 @@ async fn test_blob_reader() {
     let max_seq = 1024;
     let blob_id = seq_to_blob_id(cpu_id, rand::rng().random_range(0..max_seq));
 
-    tokio::spawn(merge_blob(
+    let merger = tokio::spawn(merge_blob(
         cpu_id,
         blob_id_receiver,
         blob_receiver,
@@ -52,48 +53,63 @@ async fn test_blob_reader() {
     });
 
     let blob = merged_blob_receiver.recv().await.expect("");
+
+    drop(blob_id_sender);
+    drop(blob_sender);
+
+    merger.await.expect("");
     assert_eq!(blob.0, blob_id);
 }
 
-/*
-#[tokio::test(flavor = "multi_thread")]
+// `test_blob_reader` merges blobs with id 1, 9, 11.
+#[tokio::test]
 async fn test_blob_reader_merge() {
-    let (sender, receiver) = async_channel::unbounded();
-    let cpu = 1;
-    let seq = 2;
+    let (blob_id_sender, blob_id_receiver) = unbounded_channel();
+    let (blob_sender, blob_receiver) = unbounded_channel();
+    let (merged_blob_sender, mut merged_blob_receiver) = unbounded_channel();
+
+    let cpu_id = 1;
+    let seq = 1;
+    let blob_id = seq_to_blob_id(cpu_id, seq);
     let data = "012345678".as_bytes();
 
-    let mut reader = BlobReceiver::new(cpu, receiver);
+    let merger = tokio::spawn(merge_blob(
+        cpu_id,
+        blob_id_receiver,
+        blob_receiver,
+        merged_blob_sender.clone(),
+    ));
 
-    let r = tokio::spawn(async move {
-        let mut merged = vec![];
-        merge_blobs(seq_to_blob_id(cpu, seq), &mut merged, &mut reader)
-            .await
-            .expect("error merging blobs");
-        merged
-    });
-
-    let w = tokio::spawn(async move {
-        sender
-            .send(fake_blob(cpu, seq, 9, Some(&data[0..1])))
-            .await
+    let _blob_sender = blob_sender.clone();
+    tokio::spawn(async move {
+        _blob_sender
+            .send(fake_blob(cpu_id, 1, 9, Some(&data[0..1])))
             .expect("error sending blob");
-        sender
-            .send(fake_blob(cpu, 9, 11, Some(&data[1..6])))
-            .await
+        _blob_sender
+            .send(fake_blob(cpu_id, 9, 11, Some(&data[1..6])))
             .expect("error sending blob");
-        sender
-            .send(fake_blob(cpu, 11, 0, Some(&data[6..data.len()])))
-            .await
+        _blob_sender
+            .send(fake_blob(cpu_id, 11, 0, Some(&data[6..data.len()])))
             .expect("error sending blob");
     });
 
-    w.await.expect("error channel writing");
-    let merged = r.await.expect("error merging blobs");
+    let _blob_id_sender = blob_id_sender.clone();
+    tokio::spawn(async move {
+        _blob_id_sender
+            .send(blob_id)
+            .expect("failed to send blob_id");
+    });
 
-    assert_eq!(merged.as_slice(), data);
+    let blob = merged_blob_receiver.recv().await.expect("");
+
+    drop(blob_id_sender);
+    drop(blob_sender);
+
+    merger.await.expect("");
+    assert_eq!(blob.1.as_slice(), data);
 }
 
+/*
 #[tokio::test(flavor = "multi_thread")]
 async fn test_blob_reader_merge_with_missing_blobs() {
     let (sender, receiver) = async_channel::unbounded();
