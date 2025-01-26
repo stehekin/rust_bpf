@@ -1,6 +1,6 @@
 use crate::bpf::types::lw_blob;
 use log::{error, warn};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 pub(crate) struct MergedBlob(pub u64, pub Vec<u8>);
 
@@ -79,4 +79,35 @@ pub(crate) async fn merge_blob(
             }
         }
     }
+}
+
+pub(crate) struct SendersReceivers {
+    pub blob_id_sender: UnboundedSender<u64>,
+    pub blob_sender: UnboundedSender<lw_blob>,
+    pub merged_blob_receiver: UnboundedReceiver<MergedBlob>,
+}
+
+pub(crate) fn spawn_blob_mergers() -> Vec<SendersReceivers> {
+    let mut senders_receivers = vec![];
+
+    for cpu_id in 0..num_cpus::get() {
+        let (blob_id_sender, blob_id_receiver) = unbounded_channel();
+        let (blob_sender, blob_receiver) = unbounded_channel();
+        let (merged_blob_sender, merged_blob_receiver) = unbounded_channel();
+
+        senders_receivers.push(SendersReceivers {
+            blob_id_sender,
+            blob_sender,
+            merged_blob_receiver,
+        });
+
+        tokio::spawn(merge_blob(
+            cpu_id,
+            blob_id_receiver,
+            blob_receiver,
+            merged_blob_sender,
+        ));
+    }
+
+    senders_receivers
 }
