@@ -1,14 +1,13 @@
 use super::resources::scripts;
 use super::utils::run_script_with_name;
 
-use crate::bpf::blob::{seq_to_blob_id, spawn_blob_mergers};
 use crate::bpf::sched_process_exec;
 use crate::bpf::sched_process_exec::ProbeSkel;
 use crate::bpf::types;
-use crate::bpf::types::{lw_blob, lw_signal_header, lw_signal_task};
+use crate::bpf::types::{lw_signal_header, lw_signal_task};
 use crate::bpf::types_conv::copy_from_bytes;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use libbpf_rs::{
     skel::{OpenSkel, Skel, SkelBuilder},
     RingBufferBuilder,
@@ -17,7 +16,7 @@ use libbpf_rs::{
 use std::mem::MaybeUninit;
 use std::time::Duration;
 use tokio::sync::mpsc::error::TryRecvError;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::unbounded_channel;
 
 const REGULAR_SUFFIX: &str = ".lw_regular";
 const EXIT_SUFFIX: &str = ".lw_exit";
