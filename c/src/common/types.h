@@ -85,10 +85,10 @@ typedef struct {
   u16 cpu_id;
   u32 _reserved;
   u64 submit_time_ns;
-} lw_sigal_header;
+} lw_signal_header;
 
 typedef struct {
-  lw_sigal_header header;
+  lw_signal_header header;
   lw_task body;
 } lw_signal_task;
 

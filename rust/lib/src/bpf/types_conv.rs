@@ -1,5 +1,5 @@
 use super::types::BLOB_SIZE;
-use crate::bpf::types::{lw_blob, lw_blob_header, lw_sigal_header, lw_signal_task, lw_task};
+use crate::bpf::types::{lw_blob, lw_blob_header, lw_signal_header, lw_signal_task, lw_task};
 use plain::Plain;
 use std::mem::size_of;
 
@@ -9,7 +9,7 @@ const BLOB_DATA_SIZE: usize = BLOB_SIZE as usize - size_of::<lw_blob_header>();
 unsafe impl Plain for lw_blob_header {}
 unsafe impl Plain for lw_blob {}
 unsafe impl Plain for lw_task {}
-unsafe impl Plain for lw_sigal_header {}
+unsafe impl Plain for lw_signal_header {}
 unsafe impl Plain for lw_signal_task {}
 
 pub(crate) fn copy_from_bytes<T: Default + Plain>(buf: &[u8]) -> T {

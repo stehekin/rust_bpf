@@ -9,7 +9,7 @@
 
 #define SIGNAL_VERSION 0x01
 
-static inline void init_header(lw_sigal_header *header, lw_signal_type signal_type) {
+static inline void init_header(lw_signal_header *header, lw_signal_type signal_type) {
   header->version = SIGNAL_VERSION;
   header->signal_type = signal_type;
   header->cpu_id = bpf_get_smp_processor_id();

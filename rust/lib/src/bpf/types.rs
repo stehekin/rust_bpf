@@ -601,7 +601,7 @@ pub const lw_signal_type_LW_SIGNAL_TASK: lw_signal_type = 1;
 pub type lw_signal_type = ::std::os::raw::c_uint;
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
-pub struct lw_sigal_header {
+pub struct lw_signal_header {
     pub version: u8_,
     pub signal_type: u8_,
     pub cpu_id: u16_,
@@ -609,25 +609,25 @@ pub struct lw_sigal_header {
     pub submit_time_ns: u64_,
 }
 #[test]
-fn bindgen_test_layout_lw_sigal_header() {
-    const UNINIT: ::std::mem::MaybeUninit<lw_sigal_header> = ::std::mem::MaybeUninit::uninit();
+fn bindgen_test_layout_lw_signal_header() {
+    const UNINIT: ::std::mem::MaybeUninit<lw_signal_header> = ::std::mem::MaybeUninit::uninit();
     let ptr = UNINIT.as_ptr();
     assert_eq!(
-        ::std::mem::size_of::<lw_sigal_header>(),
+        ::std::mem::size_of::<lw_signal_header>(),
         16usize,
-        concat!("Size of: ", stringify!(lw_sigal_header))
+        concat!("Size of: ", stringify!(lw_signal_header))
     );
     assert_eq!(
-        ::std::mem::align_of::<lw_sigal_header>(),
+        ::std::mem::align_of::<lw_signal_header>(),
         8usize,
-        concat!("Alignment of ", stringify!(lw_sigal_header))
+        concat!("Alignment of ", stringify!(lw_signal_header))
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).version) as usize - ptr as usize },
         0usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_sigal_header),
+            stringify!(lw_signal_header),
             "::",
             stringify!(version)
         )
@@ -637,7 +637,7 @@ fn bindgen_test_layout_lw_sigal_header() {
         1usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_sigal_header),
+            stringify!(lw_signal_header),
             "::",
             stringify!(signal_type)
         )
@@ -647,7 +647,7 @@ fn bindgen_test_layout_lw_sigal_header() {
         2usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_sigal_header),
+            stringify!(lw_signal_header),
             "::",
             stringify!(cpu_id)
         )
@@ -657,7 +657,7 @@ fn bindgen_test_layout_lw_sigal_header() {
         4usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_sigal_header),
+            stringify!(lw_signal_header),
             "::",
             stringify!(_reserved)
         )
@@ -667,7 +667,7 @@ fn bindgen_test_layout_lw_sigal_header() {
         8usize,
         concat!(
             "Offset of field: ",
-            stringify!(lw_sigal_header),
+            stringify!(lw_signal_header),
             "::",
             stringify!(submit_time_ns)
         )
@@ -676,7 +676,7 @@ fn bindgen_test_layout_lw_sigal_header() {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct lw_signal_task {
-    pub header: lw_sigal_header,
+    pub header: lw_signal_header,
     pub body: lw_task,
 }
 #[test]
