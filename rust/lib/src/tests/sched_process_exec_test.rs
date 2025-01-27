@@ -14,13 +14,16 @@ use libbpf_rs::{
     RingBufferBuilder,
 };
 
+use std::cell::RefCell;
 use std::mem::MaybeUninit;
+use std::rc::Rc;
 use std::time::Duration;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 use tokio::task::JoinHandle;
 
 const REGULAR_SUFFIX: &str = ".lw_regular";
+const UNSHARE_SUFFIX: &str = ".lw_unshare";
 const EXIT_SUFFIX: &str = ".lw_exit";
 
 fn setup_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<ProbeSkel> {
@@ -103,6 +106,55 @@ async fn test_process_regular() {
 
     run_scripts(vec![
         ("date", REGULAR_SUFFIX, scripts::SCRIPT),
+        ("exit", EXIT_SUFFIX, scripts::SCRIPT),
+    ]);
+
+    let rb = rbb.build().expect("error build ringbuff");
+    polling_ringbuffer(rb, receiver).await.expect("");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_process_child_namespaces() {
+    let (sender, receiver) = unbounded_channel::<bool>();
+
+    let mut open_object = MaybeUninit::uninit();
+    let skel = setup_bpf(&mut open_object).expect("error loading sched_process_exec bpf");
+
+    let mut rbb = RingBufferBuilder::new();
+    let grand_parent: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
+    let parent: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
+    rbb.add(&skel.maps.signal_ringbuf, move |data| -> i32 {
+        let header = copy_from_bytes::<lw_signal_header>(data);
+        if header.signal_type != types::lw_signal_type_LW_SIGNAL_TASK as u8 {
+            return 0;
+        }
+
+        let task = copy_from_bytes::<lw_signal_task>(data);
+        unsafe {
+            let filename = task.body.exec.filename.str_;
+
+            if has_suffix(filename.as_slice(), UNSHARE_SUFFIX.as_bytes()) {
+                *grand_parent.borrow_mut() = task.body.pid.pid;
+            } else if has_suffix(filename.as_slice(), "unshare".as_bytes()) {
+                *parent.borrow_mut() = task.body.pid.pid;
+                assert_eq!(task.body.parent.pid, *grand_parent.borrow());
+            }
+
+            if task.body.pid.pid_vnr == 1 {
+                assert_eq!(task.body.parent.pid, *parent.borrow());
+                assert!(has_suffix(filename.as_slice(), "date".as_bytes()))
+            }
+
+            if has_suffix(filename.as_slice(), EXIT_SUFFIX.as_bytes()) {
+                sender.send(true).expect("");
+            }
+        }
+        return 0;
+    })
+    .unwrap();
+
+    run_scripts(vec![
+        ("date", UNSHARE_SUFFIX, scripts::UNSHARE),
         ("exit", EXIT_SUFFIX, scripts::SCRIPT),
     ]);
 
