@@ -1,30 +1,36 @@
 #[cfg(test)]
-mod file_open_test;
+mod blob_test;
 #[cfg(test)]
 mod bprm_committed_creds_test;
 #[cfg(test)]
-mod sched_process_exec_test;
+mod file_open_test;
 #[cfg(test)]
 mod resources;
 #[cfg(test)]
-mod blob_test;
+mod sched_process_exec_test;
 
 #[cfg(test)]
 mod utils {
     use anyhow::{bail, Context, Result};
+    use rand::{distr::Alphanumeric, Rng};
+    use std::io::Write;
+    use std::os::unix::fs::PermissionsExt;
     use tempfile;
     use tempfile::Builder;
-    use rand::{distr::Alphanumeric, Rng};
-    use std::os::unix::fs::PermissionsExt;
-    use std::io::Write;
 
-    pub(super) async fn run_script(prefix_len: usize, suffix: &str, content: &str) -> Result<()> {
-        let rng = rand::rng();
-        let name: String = rng.sample_iter(Alphanumeric).take(prefix_len).map(char::from).collect();
-        run_script_with_name(name.as_str(), suffix, content).await
+    pub(super) fn random_prefix(len: usize) -> String {
+        rand::rng()
+            .sample_iter(Alphanumeric)
+            .take(len)
+            .map(char::from)
+            .collect()
     }
 
-    pub(super) async fn run_script_with_name(prefix: &str, suffix: &str, content: &str) -> Result<()> {
+    pub(super) async fn run_script_with_name(
+        prefix: &str,
+        suffix: &str,
+        content: &str,
+    ) -> Result<()> {
         let mut file = Builder::new()
             .prefix(prefix)
             .suffix(suffix)

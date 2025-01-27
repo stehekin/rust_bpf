@@ -8,6 +8,7 @@ use crate::bpf::types::{lw_signal_header, lw_signal_task};
 use crate::bpf::types_conv::copy_from_bytes;
 
 use anyhow::Result;
+use libbpf_rs::RingBuffer;
 use libbpf_rs::{
     skel::{OpenSkel, Skel, SkelBuilder},
     RingBufferBuilder,
@@ -16,7 +17,8 @@ use libbpf_rs::{
 use std::mem::MaybeUninit;
 use std::time::Duration;
 use tokio::sync::mpsc::error::TryRecvError;
-use tokio::sync::mpsc::unbounded_channel;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use tokio::task::JoinHandle;
 
 const REGULAR_SUFFIX: &str = ".lw_regular";
 const EXIT_SUFFIX: &str = ".lw_exit";
@@ -37,9 +39,40 @@ fn has_suffix(name: &[u8], suffix: &[u8]) -> bool {
     false
 }
 
+fn run_scripts(scripts: Vec<(&'static str, &'static str, &'static str)>) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        for s in scripts {
+            run_script_with_name(s.0, s.1, s.2)
+                .await
+                .expect("error running script");
+        }
+    })
+}
+
+fn polling_ringbuffer(
+    rb: RingBuffer<'static>,
+    mut receiver: UnboundedReceiver<bool>,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            rb.poll(Duration::from_secs(1))
+                .expect("error polling ringbuffer");
+            match receiver.try_recv() {
+                Err(TryRecvError::Empty) => {}
+                Err(_) => {
+                    panic!("unexpected channel receving error!");
+                }
+                Ok(_) => {
+                    break;
+                }
+            }
+        }
+    })
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn test_process_regular() {
-    let (sender, mut receiver) = unbounded_channel::<bool>();
+    let (sender, receiver) = unbounded_channel::<bool>();
 
     let mut open_object = MaybeUninit::uninit();
     let skel = setup_bpf(&mut open_object).expect("error loading sched_process_exec bpf");
@@ -68,31 +101,11 @@ async fn test_process_regular() {
     })
     .expect("error adding ringbuf handler");
 
-    tokio::spawn(async move {
-        run_script_with_name("date", REGULAR_SUFFIX, scripts::SCRIPT)
-            .await
-            .expect("error running regular script");
-        run_script_with_name("exit", EXIT_SUFFIX, scripts::SCRIPT)
-            .await
-            .expect("error running exit script");
-    });
+    run_scripts(vec![
+        ("date", REGULAR_SUFFIX, scripts::SCRIPT),
+        ("exit", EXIT_SUFFIX, scripts::SCRIPT),
+    ]);
 
     let rb = rbb.build().expect("error build ringbuff");
-    tokio::spawn(async move {
-        loop {
-            rb.poll(Duration::from_secs(1))
-                .expect("error polling ringbuffer");
-            match receiver.try_recv() {
-                Err(TryRecvError::Empty) => {}
-                Err(_) => {
-                    panic!("unexpected error!");
-                }
-                Ok(_) => {
-                    break;
-                }
-            }
-        }
-    })
-    .await
-    .expect("");
+    polling_ringbuffer(rb, receiver).await.expect("");
 }
