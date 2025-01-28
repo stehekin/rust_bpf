@@ -33,26 +33,21 @@ async fn test_blob_reader() {
     let max_seq = 1024;
     let blob_id = seq_to_blob_id(cpu_id, rand::rng().random_range(0..max_seq));
 
-    let mut senders_receivers = spawn_blob_mergers();
+    let mut srs = spawn_blob_mergers();
+    spawn_blob_id_sender(srs.blob_id_sender(cpu_id), blob_id);
 
-    let sr = senders_receivers
-        .get_mut(cpu_id)
-        .expect("channle not defined for cpu");
-
-    spawn_blob_id_sender(sr.blob_id_sender.clone(), blob_id);
-
-    let _blob_sender = sr.blob_sender.clone();
+    let blob_sender = srs.blob_sender(cpu_id);
     tokio::spawn(async move {
         for seq in 0..max_seq {
-            _blob_sender
+            blob_sender
                 .send(fake_blob(cpu_id, seq, 0, None))
                 .expect("failed to send blobs");
         }
     });
 
-    let blob = &mut sr.merged_blob_receiver.recv().await.expect("");
-
-    drop(senders_receivers);
+    let mut receiver = srs.merged_blob_receiver(cpu_id).unwrap();
+    let blob = receiver.recv().await.expect("");
+    drop(srs);
     assert_eq!(blob.0, blob_id);
 }
 
@@ -65,30 +60,25 @@ async fn test_blob_reader_merge() {
     let blob_id = seq_to_blob_id(cpu_id, seq);
     let data = "012345678".as_bytes();
 
-    let mut senders_receivers = spawn_blob_mergers();
+    let mut srs = spawn_blob_mergers();
+    spawn_blob_id_sender(srs.blob_id_sender(cpu_id), blob_id);
 
-    let sr = senders_receivers
-        .get_mut(cpu_id)
-        .expect("channle not defined for cpu");
-
-    spawn_blob_id_sender(sr.blob_id_sender.clone(), blob_id);
-
-    let _blob_sender = sr.blob_sender.clone();
+    let blob_sender = srs.blob_sender(cpu_id);
     tokio::spawn(async move {
-        _blob_sender
+        blob_sender
             .send(fake_blob(cpu_id, seq, 9, Some(&data[0..1])))
             .expect("error sending blob");
-        _blob_sender
+        blob_sender
             .send(fake_blob(cpu_id, 9, 11, Some(&data[1..6])))
             .expect("error sending blob");
-        _blob_sender
+        blob_sender
             .send(fake_blob(cpu_id, 11, 0, Some(&data[6..data.len()])))
             .expect("error sending blob");
     });
 
-    let blob = &mut sr.merged_blob_receiver.recv().await.expect("");
-
-    drop(senders_receivers);
+    let mut receiver = srs.merged_blob_receiver(cpu_id).unwrap();
+    let blob = receiver.recv().await.expect("");
+    drop(srs);
     assert_eq!(blob.1.as_slice(), data);
 }
 
@@ -101,27 +91,22 @@ async fn test_blob_reader_merge_with_missing_blobs() {
     let blob_id = seq_to_blob_id(cpu_id, seq);
     let data = "012345678".as_bytes();
 
-    let mut senders_receivers = spawn_blob_mergers();
+    let mut srs = spawn_blob_mergers();
+    spawn_blob_id_sender(srs.blob_id_sender(cpu_id), blob_id);
 
-    let sr = senders_receivers
-        .get_mut(cpu_id)
-        .expect("channle not defined for cpu");
-
-    spawn_blob_id_sender(sr.blob_id_sender.clone(), blob_id);
-
-    let _blob_sender = sr.blob_sender.clone();
+    let blob_sender = srs.blob_sender(cpu_id);
     tokio::spawn(async move {
-        _blob_sender
+        blob_sender
             .send(fake_blob(cpu_id, seq, 9, Some(&data[0..1])))
             .expect("error sending blob");
-        _blob_sender
+        blob_sender
             .send(fake_blob(cpu_id, 11, 0, Some(&data[6..data.len()])))
             .expect("error sending blob");
     });
 
-    let blob = &mut sr.merged_blob_receiver.recv().await.expect("");
-
-    drop(senders_receivers);
+    let mut receiver = srs.merged_blob_receiver(cpu_id).unwrap();
+    let blob = receiver.recv().await.expect("");
+    drop(srs);
     assert_eq!(blob.1.as_slice(), &data[0..1]);
 }
 
@@ -135,36 +120,31 @@ async fn test_blob_reader_merge_interleaved_blocks() {
     let blob_id = seq_to_blob_id(cpu_id, seq);
     let data = "012345678".as_bytes();
 
-    let mut senders_receivers = spawn_blob_mergers();
+    let mut srs = spawn_blob_mergers();
+    spawn_blob_id_sender(srs.blob_id_sender(cpu_id), blob_id);
 
-    let sr = senders_receivers
-        .get_mut(cpu_id)
-        .expect("channle not defined for cpu");
-
-    spawn_blob_id_sender(sr.blob_id_sender.clone(), blob_id);
-
-    let _blob_sender = sr.blob_sender.clone();
+    let blob_sender = srs.blob_sender(cpu_id);
     tokio::spawn(async move {
         //  Sequences:
         //  data_1:  2,   9, 11
         //  data_2:     7
         //  data_2 is be discarded by when merging blob_1 as 7 < 9.
-        _blob_sender
+        blob_sender
             .send(fake_blob(cpu_id, seq, 9, Some(&data[0..1])))
             .expect("error sending blob");
-        _blob_sender
+        blob_sender
             .send(fake_blob(cpu_id, wrong_seq, 0, Some(&data[0..1])))
             .expect("error sending blob");
-        _blob_sender
+        blob_sender
             .send(fake_blob(cpu_id, 9, 11, Some(&data[1..6])))
             .expect("error sending blob");
-        _blob_sender
+        blob_sender
             .send(fake_blob(cpu_id, 11, 0, Some(&data[6..data.len()])))
             .expect("error sending blob");
     });
 
-    let blob = &mut sr.merged_blob_receiver.recv().await.expect("");
-
-    drop(senders_receivers);
+    let mut receiver = srs.merged_blob_receiver(cpu_id).unwrap();
+    let blob = receiver.recv().await.expect("");
+    drop(srs);
     assert_eq!(blob.1.as_slice(), data);
 }

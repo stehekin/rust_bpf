@@ -82,24 +82,61 @@ pub(crate) async fn merge_blob(
 }
 
 pub(crate) struct SendersReceivers {
-    pub blob_id_sender: UnboundedSender<u64>,
-    pub blob_sender: UnboundedSender<lw_blob>,
-    pub merged_blob_receiver: UnboundedReceiver<MergedBlob>,
+    blob_id_senders: Vec<UnboundedSender<u64>>,
+    blob_senders: Vec<UnboundedSender<lw_blob>>,
+    merged_blob_reveivers: Vec<Option<UnboundedReceiver<MergedBlob>>>,
 }
 
-pub(crate) fn spawn_blob_mergers() -> Vec<SendersReceivers> {
-    let mut senders_receivers = vec![];
+impl SendersReceivers {
+    fn append(
+        &mut self,
+        blob_id_sender: UnboundedSender<u64>,
+        blob_sender: UnboundedSender<lw_blob>,
+        merged_blob_receiver: UnboundedReceiver<MergedBlob>,
+    ) {
+        self.blob_id_senders.push(blob_id_sender);
+        self.blob_senders.push(blob_sender);
+        self.merged_blob_reveivers.push(Some(merged_blob_receiver));
+    }
+
+    pub(crate) fn blob_id_sender(&self, cpu_id: usize) -> UnboundedSender<u64> {
+        self.blob_id_senders
+            .get(cpu_id)
+            .expect("missing blob_id_sender")
+            .clone()
+    }
+
+    pub(crate) fn blob_sender(&self, cpu_id: usize) -> UnboundedSender<lw_blob> {
+        self.blob_senders
+            .get(cpu_id)
+            .expect("missing blob_sender")
+            .clone()
+    }
+
+    pub(crate) fn merged_blob_receiver(
+        &mut self,
+        cpu_id: usize,
+    ) -> Option<UnboundedReceiver<MergedBlob>> {
+        self.merged_blob_reveivers
+            .get_mut(cpu_id)
+            .expect("missing merged blob receiver")
+            .take()
+    }
+}
+
+pub(crate) fn spawn_blob_mergers() -> SendersReceivers {
+    let mut senders_receivers = SendersReceivers {
+        blob_senders: vec![],
+        blob_id_senders: vec![],
+        merged_blob_reveivers: vec![],
+    };
 
     for cpu_id in 0..num_cpus::get() {
         let (blob_id_sender, blob_id_receiver) = unbounded_channel();
         let (blob_sender, blob_receiver) = unbounded_channel();
         let (merged_blob_sender, merged_blob_receiver) = unbounded_channel();
 
-        senders_receivers.push(SendersReceivers {
-            blob_id_sender,
-            blob_sender,
-            merged_blob_receiver,
-        });
+        senders_receivers.append(blob_id_sender, blob_sender, merged_blob_receiver);
 
         tokio::spawn(merge_blob(
             cpu_id,

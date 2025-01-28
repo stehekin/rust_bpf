@@ -1,6 +1,7 @@
 use super::resources::scripts;
-use super::utils::run_script_with_name;
+use super::utils::{random_prefix, run_script_with_name};
 
+use crate::bpf::blob::{blob_id_to_seq, spawn_blob_mergers};
 use crate::bpf::sched_process_exec;
 use crate::bpf::sched_process_exec::ProbeSkel;
 use crate::bpf::types;
@@ -13,7 +14,7 @@ use libbpf_rs::{
     skel::{OpenSkel, Skel, SkelBuilder},
     RingBufferBuilder,
 };
-
+use serial_test::serial;
 use std::cell::RefCell;
 use std::mem::MaybeUninit;
 use std::rc::Rc;
@@ -42,10 +43,10 @@ fn has_suffix(name: &[u8], suffix: &[u8]) -> bool {
     false
 }
 
-fn run_scripts(scripts: Vec<(&'static str, &'static str, &'static str)>) -> JoinHandle<()> {
+fn run_scripts(scripts: Vec<(String, String, &'static str)>) -> JoinHandle<()> {
     tokio::spawn(async move {
         for s in scripts {
-            run_script_with_name(s.0, s.1, s.2)
+            run_script_with_name(s.0.as_str(), s.1.as_str(), s.2)
                 .await
                 .expect("error running script");
         }
@@ -74,6 +75,7 @@ fn polling_ringbuffer(
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[serial]
 async fn test_process_regular() {
     let (sender, receiver) = unbounded_channel::<bool>();
 
@@ -105,8 +107,8 @@ async fn test_process_regular() {
     .expect("error adding ringbuf handler");
 
     run_scripts(vec![
-        ("date", REGULAR_SUFFIX, scripts::SCRIPT),
-        ("exit", EXIT_SUFFIX, scripts::SCRIPT),
+        ("date".into(), REGULAR_SUFFIX.into(), scripts::SCRIPT),
+        ("exit".into(), EXIT_SUFFIX.into(), scripts::SCRIPT),
     ]);
 
     let rb = rbb.build().expect("error build ringbuff");
@@ -114,6 +116,7 @@ async fn test_process_regular() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+#[serial]
 async fn test_process_child_namespaces() {
     let (sender, receiver) = unbounded_channel::<bool>();
 
@@ -123,6 +126,7 @@ async fn test_process_child_namespaces() {
     let mut rbb = RingBufferBuilder::new();
     let grand_parent: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
     let parent: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
+
     rbb.add(&skel.maps.signal_ringbuf, move |data| -> i32 {
         let header = copy_from_bytes::<lw_signal_header>(data);
         if header.signal_type != types::lw_signal_type_LW_SIGNAL_TASK as u8 {
@@ -154,10 +158,62 @@ async fn test_process_child_namespaces() {
     .unwrap();
 
     run_scripts(vec![
-        ("date", UNSHARE_SUFFIX, scripts::UNSHARE),
-        ("exit", EXIT_SUFFIX, scripts::SCRIPT),
+        ("date".into(), UNSHARE_SUFFIX.into(), scripts::UNSHARE),
+        ("exit".into(), EXIT_SUFFIX.into(), scripts::SCRIPT),
     ]);
 
     let rb = rbb.build().expect("error build ringbuff");
     polling_ringbuffer(rb, receiver).await.expect("");
 }
+
+/*
+#[tokio::test(flavor = "multi_thread")]
+async fn test_process_long_filename() {
+    let (sender, receiver) = unbounded_channel::<bool>();
+
+    let mut senders_receivers = spawn_blob_mergers();
+
+    let mut open_object = MaybeUninit::uninit();
+    let skel = setup_bpf(&mut open_object).expect("error loading sched_process_exec bpf");
+
+    let mut rbb = RingBufferBuilder::new();
+
+    rbb.add(&skel.maps.blob_ringbuf, move |data| -> i32 {
+        let data = copy_from_bytes::<types::lw_blob>(data);
+        let (cpu, _) = blob_id_to_seq(data.header.blob_id);
+        0
+    })
+
+    rbb.add(&skel.maps.signal_ringbuf, move |data| -> i32 {
+        let header = copy_from_bytes::<lw_signal_header>(data);
+        if header.signal_type != types::lw_signal_type_LW_SIGNAL_TASK as u8 {
+            return 0;
+        }
+
+        let task = copy_from_bytes::<lw_signal_task>(data);
+        unsafe {
+            let filename = task.body.exec.filename.str_;
+            if has_suffix(filename.as_slice(), REGULAR_SUFFIX.as_bytes()) {
+                assert!(has_suffix(
+                    task.body.exec.interp.str_.as_slice(),
+                    "/bin/sh".as_bytes()
+                ));
+            }
+            if has_suffix(filename.as_slice(), EXIT_SUFFIX.as_bytes()) {
+                sender.send(true).expect("");
+            }
+        }
+        return 0;
+    })
+    .expect("error adding ringbuf handler");
+
+    let filename = random_prefix(128);
+    run_scripts(vec![
+        (filename, REGULAR_SUFFIX.into(), scripts::SCRIPT),
+        ("exit".into(), EXIT_SUFFIX.into(), scripts::SCRIPT),
+    ]);
+
+    let rb = rbb.build().expect("error build ringbuff");
+    polling_ringbuffer(rb, receiver).await.expect("");
+}
+*/

@@ -11,7 +11,7 @@ libbpf-cargo = "0.24"
 async-std = "1.13"
 async-process = "2.3"
 tempfile = "3"
-serial_test = "0.4"
+serial_test = "3.2"
 
 [dependencies]
 anyhow = "1.0"
