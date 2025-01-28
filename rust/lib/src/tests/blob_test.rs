@@ -34,9 +34,9 @@ async fn test_blob_reader() {
     let blob_id = seq_to_blob_id(cpu_id, rand::rng().random_range(0..max_seq));
 
     let mut srs = spawn_blob_mergers();
-    spawn_blob_id_sender(srs.blob_id_sender(cpu_id), blob_id);
+    spawn_blob_id_sender(srs.blob_id_senders.get(cpu_id).unwrap().clone(), blob_id);
 
-    let blob_sender = srs.blob_sender(cpu_id);
+    let blob_sender = srs.blob_senders.get(cpu_id).unwrap().clone();
     tokio::spawn(async move {
         for seq in 0..max_seq {
             blob_sender
@@ -45,8 +45,8 @@ async fn test_blob_reader() {
         }
     });
 
-    let mut receiver = srs.merged_blob_receiver(cpu_id).unwrap();
-    let blob = receiver.recv().await.expect("");
+    let mut receivers = srs.take_merged_blob_receiver().unwrap();
+    let blob = receivers.get_mut(cpu_id).unwrap().recv().await.expect("");
     drop(srs);
     assert_eq!(blob.0, blob_id);
 }
@@ -61,9 +61,9 @@ async fn test_blob_reader_merge() {
     let data = "012345678".as_bytes();
 
     let mut srs = spawn_blob_mergers();
-    spawn_blob_id_sender(srs.blob_id_sender(cpu_id), blob_id);
+    spawn_blob_id_sender(srs.blob_id_senders.get(cpu_id).unwrap().clone(), blob_id);
 
-    let blob_sender = srs.blob_sender(cpu_id);
+    let blob_sender = srs.blob_senders.get(cpu_id).unwrap().clone();
     tokio::spawn(async move {
         blob_sender
             .send(fake_blob(cpu_id, seq, 9, Some(&data[0..1])))
@@ -76,8 +76,8 @@ async fn test_blob_reader_merge() {
             .expect("error sending blob");
     });
 
-    let mut receiver = srs.merged_blob_receiver(cpu_id).unwrap();
-    let blob = receiver.recv().await.expect("");
+    let mut receivers = srs.take_merged_blob_receiver().unwrap();
+    let blob = receivers.get_mut(cpu_id).unwrap().recv().await.expect("");
     drop(srs);
     assert_eq!(blob.1.as_slice(), data);
 }
@@ -92,9 +92,9 @@ async fn test_blob_reader_merge_with_missing_blobs() {
     let data = "012345678".as_bytes();
 
     let mut srs = spawn_blob_mergers();
-    spawn_blob_id_sender(srs.blob_id_sender(cpu_id), blob_id);
+    spawn_blob_id_sender(srs.blob_id_senders.get(cpu_id).unwrap().clone(), blob_id);
 
-    let blob_sender = srs.blob_sender(cpu_id);
+    let blob_sender = srs.blob_senders.get(cpu_id).unwrap().clone();
     tokio::spawn(async move {
         blob_sender
             .send(fake_blob(cpu_id, seq, 9, Some(&data[0..1])))
@@ -104,8 +104,8 @@ async fn test_blob_reader_merge_with_missing_blobs() {
             .expect("error sending blob");
     });
 
-    let mut receiver = srs.merged_blob_receiver(cpu_id).unwrap();
-    let blob = receiver.recv().await.expect("");
+    let mut receivers = srs.take_merged_blob_receiver().unwrap();
+    let blob = receivers.get_mut(cpu_id).unwrap().recv().await.expect("");
     drop(srs);
     assert_eq!(blob.1.as_slice(), &data[0..1]);
 }
@@ -121,9 +121,9 @@ async fn test_blob_reader_merge_interleaved_blocks() {
     let data = "012345678".as_bytes();
 
     let mut srs = spawn_blob_mergers();
-    spawn_blob_id_sender(srs.blob_id_sender(cpu_id), blob_id);
+    spawn_blob_id_sender(srs.blob_id_senders.get(cpu_id).unwrap().clone(), blob_id);
 
-    let blob_sender = srs.blob_sender(cpu_id);
+    let blob_sender = srs.blob_senders.get(cpu_id).unwrap().clone();
     tokio::spawn(async move {
         //  Sequences:
         //  data_1:  2,   9, 11
@@ -143,8 +143,8 @@ async fn test_blob_reader_merge_interleaved_blocks() {
             .expect("error sending blob");
     });
 
-    let mut receiver = srs.merged_blob_receiver(cpu_id).unwrap();
-    let blob = receiver.recv().await.expect("");
+    let mut receivers = srs.take_merged_blob_receiver().unwrap();
+    let blob = receivers.get_mut(cpu_id).unwrap().recv().await.expect("");
     drop(srs);
     assert_eq!(blob.1.as_slice(), data);
 }

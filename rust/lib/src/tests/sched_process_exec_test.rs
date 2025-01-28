@@ -166,24 +166,31 @@ async fn test_process_child_namespaces() {
     polling_ringbuffer(rb, receiver).await.expect("");
 }
 
-/*
 #[tokio::test(flavor = "multi_thread")]
 async fn test_process_long_filename() {
     let (sender, receiver) = unbounded_channel::<bool>();
 
-    let mut senders_receivers = spawn_blob_mergers();
+    let mut srs = spawn_blob_mergers();
 
     let mut open_object = MaybeUninit::uninit();
     let skel = setup_bpf(&mut open_object).expect("error loading sched_process_exec bpf");
 
     let mut rbb = RingBufferBuilder::new();
 
+    let blob_senders = srs.blob_senders.clone();
     rbb.add(&skel.maps.blob_ringbuf, move |data| -> i32 {
         let data = copy_from_bytes::<types::lw_blob>(data);
-        let (cpu, _) = blob_id_to_seq(data.header.blob_id);
+        let (cpu_id, _) = blob_id_to_seq(data.header.blob_id);
+        blob_senders
+            .get(cpu_id)
+            .unwrap()
+            .send(data)
+            .expect("error sending blob");
         0
     })
+    .expect("error adding blob ringbuf handler");
 
+    let blob_id_senders = srs.blob_id_senders.clone();
     rbb.add(&skel.maps.signal_ringbuf, move |data| -> i32 {
         let header = copy_from_bytes::<lw_signal_header>(data);
         if header.signal_type != types::lw_signal_type_LW_SIGNAL_TASK as u8 {
@@ -192,6 +199,15 @@ async fn test_process_long_filename() {
 
         let task = copy_from_bytes::<lw_signal_task>(data);
         unsafe {
+            if task.body.exec.filename.blob.flag == 0 {
+                let blob_id = task.body.exec.filename.blob.blob_id;
+                let (cpu_id, _) = blob_id_to_seq(blob_id);
+                blob_id_senders
+                    .get(cpu_id)
+                    .unwrap()
+                    .send(blob_id)
+                    .expect("error sending blob id");
+            }
             let filename = task.body.exec.filename.str_;
             if has_suffix(filename.as_slice(), REGULAR_SUFFIX.as_bytes()) {
                 assert!(has_suffix(
@@ -205,7 +221,7 @@ async fn test_process_long_filename() {
         }
         return 0;
     })
-    .expect("error adding ringbuf handler");
+    .expect("error adding signal ringbuf handler");
 
     let filename = random_prefix(128);
     run_scripts(vec![
@@ -216,4 +232,3 @@ async fn test_process_long_filename() {
     let rb = rbb.build().expect("error build ringbuff");
     polling_ringbuffer(rb, receiver).await.expect("");
 }
-*/

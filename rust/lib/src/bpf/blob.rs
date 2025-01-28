@@ -82,9 +82,9 @@ pub(crate) async fn merge_blob(
 }
 
 pub(crate) struct SendersReceivers {
-    blob_id_senders: Vec<UnboundedSender<u64>>,
-    blob_senders: Vec<UnboundedSender<lw_blob>>,
-    merged_blob_reveivers: Vec<Option<UnboundedReceiver<MergedBlob>>>,
+    pub blob_id_senders: Vec<UnboundedSender<u64>>,
+    pub blob_senders: Vec<UnboundedSender<lw_blob>>,
+    merged_blob_reveivers: Option<Vec<UnboundedReceiver<MergedBlob>>>,
 }
 
 impl SendersReceivers {
@@ -96,31 +96,16 @@ impl SendersReceivers {
     ) {
         self.blob_id_senders.push(blob_id_sender);
         self.blob_senders.push(blob_sender);
-        self.merged_blob_reveivers.push(Some(merged_blob_receiver));
-    }
-
-    pub(crate) fn blob_id_sender(&self, cpu_id: usize) -> UnboundedSender<u64> {
-        self.blob_id_senders
-            .get(cpu_id)
-            .expect("missing blob_id_sender")
-            .clone()
-    }
-
-    pub(crate) fn blob_sender(&self, cpu_id: usize) -> UnboundedSender<lw_blob> {
-        self.blob_senders
-            .get(cpu_id)
-            .expect("missing blob_sender")
-            .clone()
-    }
-
-    pub(crate) fn merged_blob_receiver(
-        &mut self,
-        cpu_id: usize,
-    ) -> Option<UnboundedReceiver<MergedBlob>> {
         self.merged_blob_reveivers
-            .get_mut(cpu_id)
-            .expect("missing merged blob receiver")
-            .take()
+            .as_mut()
+            .unwrap()
+            .push(merged_blob_receiver);
+    }
+
+    pub(crate) fn take_merged_blob_receiver(
+        &mut self,
+    ) -> Option<Vec<UnboundedReceiver<MergedBlob>>> {
+        self.merged_blob_reveivers.take()
     }
 }
 
@@ -128,7 +113,7 @@ pub(crate) fn spawn_blob_mergers() -> SendersReceivers {
     let mut senders_receivers = SendersReceivers {
         blob_senders: vec![],
         blob_id_senders: vec![],
-        merged_blob_reveivers: vec![],
+        merged_blob_reveivers: Some(vec![]),
     };
 
     for cpu_id in 0..num_cpus::get() {
