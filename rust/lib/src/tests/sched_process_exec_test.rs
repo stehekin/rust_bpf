@@ -1,7 +1,7 @@
 use super::resources::scripts;
 use super::utils::{random_prefix, run_script_with_name};
 
-use crate::bpf::blob::{blob_id_to_seq, spawn_blob_mergers, MergedBlob};
+use crate::bpf::blob::{blob_id_to_seq, merge_blob, spawn_blob_mergers, MergedBlob};
 use crate::bpf::sched_process_exec;
 use crate::bpf::sched_process_exec::ProbeSkel;
 use crate::bpf::types;
@@ -56,12 +56,13 @@ fn run_scripts(scripts: Vec<(String, String, &'static str)>) -> JoinHandle<()> {
 fn spawn_merged_blob_receivers(merged_blob_receivers: Vec<UnboundedReceiver<MergedBlob>>) {
     for (cpu_id, mut r) in merged_blob_receivers.into_iter().enumerate() {
         tokio::spawn(async move {
-            let merged_blob = r.recv().await.expect("error receiving merged blob");
-            assert!(merged_blob.0 == cpu_id as u64);
-            print!(
-                ">>{0}<<\n",
-                String::from_utf8_lossy(merged_blob.1.as_slice())
-            );
+            let merged_blob = r.recv().await.expect("");
+            let (cpu, _) = blob_id_to_seq(merged_blob.0);
+            assert_eq!(cpu_id, cpu);
+            assert!(has_suffix(
+                merged_blob.1.as_slice(),
+                REGULAR_SUFFIX.as_bytes()
+            ));
         });
     }
 }
