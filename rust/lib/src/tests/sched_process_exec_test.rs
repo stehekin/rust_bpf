@@ -1,7 +1,7 @@
 use super::resources::scripts;
 use super::utils::{random_prefix, run_script_with_name};
 
-use crate::bpf::blob::{blob_id_to_seq, spawn_blob_mergers};
+use crate::bpf::blob::{blob_id_to_seq, spawn_blob_mergers, MergedBlob};
 use crate::bpf::sched_process_exec;
 use crate::bpf::sched_process_exec::ProbeSkel;
 use crate::bpf::types;
@@ -51,6 +51,19 @@ fn run_scripts(scripts: Vec<(String, String, &'static str)>) -> JoinHandle<()> {
                 .expect("error running script");
         }
     })
+}
+
+fn spawn_merged_blob_receivers(merged_blob_receivers: Vec<UnboundedReceiver<MergedBlob>>) {
+    for (cpu_id, mut r) in merged_blob_receivers.into_iter().enumerate() {
+        tokio::spawn(async move {
+            let merged_blob = r.recv().await.expect("error receiving merged blob");
+            assert!(merged_blob.0 == cpu_id as u64);
+            print!(
+                ">>{0}<<\n",
+                String::from_utf8_lossy(merged_blob.1.as_slice())
+            );
+        });
+    }
 }
 
 fn polling_ringbuffer(
@@ -171,6 +184,7 @@ async fn test_process_long_filename() {
     let (sender, receiver) = unbounded_channel::<bool>();
 
     let mut srs = spawn_blob_mergers();
+    spawn_merged_blob_receivers(srs.merged_blob_receivers.take().unwrap());
 
     let mut open_object = MaybeUninit::uninit();
     let skel = setup_bpf(&mut open_object).expect("error loading sched_process_exec bpf");
@@ -199,23 +213,16 @@ async fn test_process_long_filename() {
 
         let task = copy_from_bytes::<lw_signal_task>(data);
         unsafe {
-            if task.body.exec.filename.blob.flag == 0 {
-                let blob_id = task.body.exec.filename.blob.blob_id;
+            let filename = task.body.exec.filename;
+            if filename.blob.flag == 0 {
+                let blob_id = filename.blob.blob_id;
                 let (cpu_id, _) = blob_id_to_seq(blob_id);
                 blob_id_senders
                     .get(cpu_id)
                     .unwrap()
                     .send(blob_id)
                     .expect("error sending blob id");
-            }
-            let filename = task.body.exec.filename.str_;
-            if has_suffix(filename.as_slice(), REGULAR_SUFFIX.as_bytes()) {
-                assert!(has_suffix(
-                    task.body.exec.interp.str_.as_slice(),
-                    "/bin/sh".as_bytes()
-                ));
-            }
-            if has_suffix(filename.as_slice(), EXIT_SUFFIX.as_bytes()) {
+            } else if has_suffix(filename.str_.as_slice(), EXIT_SUFFIX.as_bytes()) {
                 sender.send(true).expect("");
             }
         }

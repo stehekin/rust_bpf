@@ -45,7 +45,7 @@ async fn test_blob_reader() {
         }
     });
 
-    let mut receivers = srs.take_merged_blob_receiver().unwrap();
+    let mut receivers = srs.merged_blob_receivers.take().unwrap();
     let blob = receivers.get_mut(cpu_id).unwrap().recv().await.expect("");
     drop(srs);
     assert_eq!(blob.0, blob_id);
@@ -76,7 +76,7 @@ async fn test_blob_reader_merge() {
             .expect("error sending blob");
     });
 
-    let mut receivers = srs.take_merged_blob_receiver().unwrap();
+    let mut receivers = srs.merged_blob_receivers.take().unwrap();
     let blob = receivers.get_mut(cpu_id).unwrap().recv().await.expect("");
     drop(srs);
     assert_eq!(blob.1.as_slice(), data);
@@ -104,7 +104,7 @@ async fn test_blob_reader_merge_with_missing_blobs() {
             .expect("error sending blob");
     });
 
-    let mut receivers = srs.take_merged_blob_receiver().unwrap();
+    let mut receivers = srs.merged_blob_receivers.take().unwrap();
     let blob = receivers.get_mut(cpu_id).unwrap().recv().await.expect("");
     drop(srs);
     assert_eq!(blob.1.as_slice(), &data[0..1]);
@@ -143,7 +143,7 @@ async fn test_blob_reader_merge_interleaved_blocks() {
             .expect("error sending blob");
     });
 
-    let mut receivers = srs.take_merged_blob_receiver().unwrap();
+    let mut receivers = srs.merged_blob_receivers.take().unwrap();
     let blob = receivers.get_mut(cpu_id).unwrap().recv().await.expect("");
     drop(srs);
     assert_eq!(blob.1.as_slice(), data);
