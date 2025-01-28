@@ -27,6 +27,10 @@ pub(crate) async fn merge_blob(
     let mut sentry: Option<lw_blob> = None;
 
     while let Some(blob_id) = blob_id_receiver.recv().await {
+        if blob_id == 0 {
+            continue;
+        }
+
         let mut merged = vec![];
         let (cpu, mut expected_seq) = blob_id_to_seq(blob_id);
         if cpu != cpu_id {
