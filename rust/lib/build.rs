@@ -16,9 +16,7 @@ fn build_bpf(c_bpf_dir: &str) {
         include.as_str(),
     ];
 
-    let bpfs = vec![
-        "sched_process_exec",
-    ];
+    let bpfs = vec!["dummy", "sched_process_exec"];
 
     for bpf in bpfs {
         let source = format!("{0}/{1}/probe.bpf.c", c_bpf_dir, bpf);
@@ -46,5 +44,7 @@ fn bindgen() {
         .allowlist_file(types)
         .generate()
         .expect("unable to generate bindings");
-    bindings.write_to_file("src/bpf/types.rs").expect("bindgen failure")
+    bindings
+        .write_to_file("src/bpf/types.rs")
+        .expect("bindgen failure")
 }

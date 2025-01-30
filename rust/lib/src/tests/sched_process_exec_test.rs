@@ -1,9 +1,7 @@
 use super::resources::scripts;
 use super::utils::{random_prefix, run_script_with_name};
 
-use crate::bpf::blob::{
-    blob_id_to_seq, merge_blob, seq_to_blob_id, spawn_blob_mergers, MergedBlob,
-};
+use crate::bpf::blob::{blob_id_to_seq, spawn_blob_mergers, MergedBlob};
 use crate::bpf::sched_process_exec;
 use crate::bpf::sched_process_exec::ProbeSkel;
 use crate::bpf::types;
@@ -60,7 +58,6 @@ fn spawn_merged_blob_receivers(merged_blob_receivers: Vec<UnboundedReceiver<Merg
         tokio::spawn(async move {
             let merged_blob = r.recv().await.expect("");
             let (cpu, _) = blob_id_to_seq(merged_blob.0);
-            // TODO: cannot put assert in threads.
             assert_eq!(cpu_id, cpu);
             assert!(has_suffix(
                 merged_blob.1.as_slice(),

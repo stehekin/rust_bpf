@@ -1,4 +1,6 @@
 #[cfg(test)]
+mod blob_loaders_test;
+#[cfg(test)]
 mod blob_test;
 #[cfg(test)]
 mod bprm_committed_creds_test;
