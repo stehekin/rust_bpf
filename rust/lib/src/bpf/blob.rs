@@ -85,13 +85,13 @@ pub(crate) async fn merge_blob(
     }
 }
 
-pub(crate) struct SendersReceivers {
+pub(crate) struct BlobSendersReceivers {
     pub blob_id_senders: Vec<UnboundedSender<u64>>,
     pub blob_senders: Vec<UnboundedSender<lw_blob>>,
     pub merged_blob_receivers: Option<Vec<UnboundedReceiver<MergedBlob>>>,
 }
 
-impl SendersReceivers {
+impl BlobSendersReceivers {
     fn append(
         &mut self,
         blob_id_sender: UnboundedSender<u64>,
@@ -107,8 +107,8 @@ impl SendersReceivers {
     }
 }
 
-pub(crate) fn spawn_blob_mergers() -> SendersReceivers {
-    let mut senders_receivers = SendersReceivers {
+pub(crate) fn spawn_blob_mergers() -> BlobSendersReceivers {
+    let mut senders_receivers = BlobSendersReceivers {
         blob_senders: vec![],
         blob_id_senders: vec![],
         merged_blob_receivers: Some(vec![]),

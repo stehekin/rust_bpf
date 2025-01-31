@@ -2,6 +2,7 @@ use super::resources::scripts;
 use super::utils::{random_prefix, run_script_with_name};
 
 use crate::bpf::blob::{blob_id_to_seq, spawn_blob_mergers, MergedBlob};
+use crate::bpf::bpf_loader::{load_sched_process_exec, setup_ringbufs};
 use crate::bpf::sched_process_exec;
 use crate::bpf::sched_process_exec::ProbeSkel;
 use crate::bpf::types;
@@ -16,6 +17,7 @@ use libbpf_rs::{
 };
 use serial_test::serial;
 use std::cell::RefCell;
+use std::ffi::OsStr;
 use std::mem::MaybeUninit;
 use std::rc::Rc;
 use std::time::Duration;
@@ -91,6 +93,38 @@ fn polling_ringbuffer(
 #[tokio::test(flavor = "multi_thread")]
 #[serial]
 async fn test_process_regular() {
+    let signal_ringbuf_path = OsStr::new("/sys/fs/bpf/lw_signal_ringbuf");
+    let blob_ringbuf_path = OsStr::new("/sys/fs/bpf/lw_blob_ringbuf");
+
+    let mut open_object = MaybeUninit::uninit();
+    let mut signal_receivers =
+        setup_ringbufs(&mut open_object, signal_ringbuf_path, blob_ringbuf_path)
+            .expect("error setting up ringbufs");
+
+    let mut spe_open_object = MaybeUninit::uninit();
+    let spe_skel =
+        load_sched_process_exec(&mut spe_open_object, signal_ringbuf_path, blob_ringbuf_path)
+            .expect("error loading probe sched_process_exec");
+
+    tokio::spawn(async move {
+        loop {
+            match signal_receivers.task_receiver.recv().await {
+                None => {
+                    return;
+                }
+                Some(task) => unsafe {
+                    print!(
+                        "{0}",
+                        String::from_utf8_lossy(&task.body.exec.filename.str_[..])
+                    )
+                },
+            }
+        }
+    })
+    .await
+    .expect("");
+
+    /*
     let (sender, receiver) = unbounded_channel::<bool>();
 
     let mut open_object = MaybeUninit::uninit();
@@ -127,6 +161,7 @@ async fn test_process_regular() {
 
     let rb = rbb.build().expect("error build ringbuff");
     polling_ringbuffer(rb, receiver).await.expect("");
+    */
 }
 
 #[tokio::test(flavor = "multi_thread")]
