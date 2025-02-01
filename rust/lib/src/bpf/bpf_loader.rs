@@ -11,6 +11,8 @@ use libbpf_rs::{
     skel::{OpenSkel, Skel, SkelBuilder},
     RingBufferBuilder,
 };
+use log::error;
+use std::time::Duration;
 use std::{ffi::OsStr, mem::MaybeUninit};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
@@ -102,6 +104,19 @@ pub(crate) fn setup_ringbufs(
         }
         return 0;
     })?;
+
+    let rb = rbb.build()?;
+    tokio::spawn(async move {
+        loop {
+            match rb.poll(Duration::MAX) {
+                Err(err) => {
+                    error!("exiting ringbuf polling due to error {err}");
+                    break;
+                }
+                _ => {}
+            }
+        }
+    });
 
     Ok(SignalReceivers {
         merged_blob_receivers: srs.merged_blob_receivers.unwrap(),

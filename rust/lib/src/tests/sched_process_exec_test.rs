@@ -114,7 +114,7 @@ async fn test_process_regular() {
                 }
                 Some(task) => unsafe {
                     print!(
-                        "{0}",
+                        "{0}\n",
                         String::from_utf8_lossy(&task.body.exec.filename.str_[..])
                     )
                 },

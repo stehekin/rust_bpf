@@ -73,6 +73,8 @@ int BPF_PROG(sched_process_exec, struct task_struct *_ignore, pid_t old_pid, str
   task->login_uid = BPF_CORE_READ(current, loginuid.val);
   task->session_id = BPF_CORE_READ(current, sessionid);
 
+  bpf_printk("[DEBUG] task signals sent");
+
   submit_task(task);
   return 0;
 }
