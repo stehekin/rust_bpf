@@ -70,10 +70,12 @@ async fn test_process_regular() {
         loop {
             if let Some(task) = signal_receivers.task_receiver.recv().await {
                 unsafe {
-                    if has_suffix(&task.body.exec.filename.str_[..], REGULAR_SUFFIX.as_bytes()) {
+                    let filename = task.body.exec.filename.str_;
+
+                    if has_suffix(&filename[..], REGULAR_SUFFIX.as_bytes()) {
                         result = true;
                     }
-                    if has_suffix(&task.body.exec.filename.str_[..], EXIT_SUFFIX.as_bytes()) {
+                    if has_suffix(&filename[..], EXIT_SUFFIX.as_bytes()) {
                         return result;
                     }
                 }
@@ -160,57 +162,46 @@ async fn test_process_child_namespaces() {
     assert!(test_result);
 }
 
-/*
 #[tokio::test(flavor = "multi_thread")]
 async fn test_process_long_filename() {
-    let (sender, receiver) = unbounded_channel::<bool>();
-
-    let mut srs = spawn_blob_mergers();
-    spawn_merged_blob_receivers(srs.merged_blob_receivers.take().unwrap());
+    let signal_ringbuf_path = OsStr::new(SIGNAL_RINGBUF_PATH);
+    let blob_ringbuf_path = OsStr::new(BLOB_RINGBUF_PATH);
 
     let mut open_object = MaybeUninit::uninit();
-    let skel = setup_bpf(&mut open_object).expect("error loading sched_process_exec bpf");
+    let mut signal_receivers =
+        setup_ringbufs(&mut open_object, signal_ringbuf_path, blob_ringbuf_path)
+            .expect("error setting up ringbufs");
 
-    let mut rbb = RingBufferBuilder::new();
+    let mut spe_open_object = MaybeUninit::uninit();
+    let spe_skel =
+        load_sched_process_exec(&mut spe_open_object, signal_ringbuf_path, blob_ringbuf_path)
+            .expect("error loading probe sched_process_exec");
 
-    let blob_senders = srs.blob_senders.clone();
-    rbb.add(&skel.maps.blob_ringbuf, move |data| -> i32 {
-        let data = copy_from_bytes::<types::lw_blob>(data);
-        let (cpu_id, _) = blob_id_to_seq(data.header.blob_id);
-        blob_senders
-            .get(cpu_id)
-            .unwrap()
-            .send(data)
-            .expect("error sending blob");
-        0
-    })
-    .expect("error adding blob ringbuf handler");
-
-    let blob_id_senders = srs.blob_id_senders.clone();
-    rbb.add(&skel.maps.signal_ringbuf, move |data| -> i32 {
-        let header = copy_from_bytes::<lw_signal_header>(data);
-        if header.signal_type != types::lw_signal_type_LW_SIGNAL_TASK as u8 {
-            return 0;
-        }
-
-        let task = copy_from_bytes::<lw_signal_task>(data);
-        unsafe {
-            let filename = task.body.exec.filename;
-            if filename.blob.flag == 0 {
-                let blob_id = filename.blob.blob_id;
-                let (cpu_id, _) = blob_id_to_seq(blob_id);
-                blob_id_senders
-                    .get(cpu_id)
-                    .unwrap()
-                    .send(blob_id)
-                    .expect("error sending blob id");
-            } else if has_suffix(filename.str_.as_slice(), EXIT_SUFFIX.as_bytes()) {
-                sender.send(true).expect("");
+    let test_result = tokio::spawn(async move {
+        let mut result = false;
+        loop {
+            if let Some(task) = signal_receivers.task_receiver.recv().await {
+                unsafe {
+                    let filename = task.body.exec.filename;
+                    if filename.blob.flag == 0 {
+                        let blob_id = filename.blob.blob_id;
+                        let (cpu_id, _) = blob_id_to_seq(blob_id);
+                        let filename = signal_receivers
+                            .merged_blob_receivers
+                            .get_mut(cpu_id)
+                            .unwrap()
+                            .recv()
+                            .await
+                            .expect("error receiving merged bob");
+                        result = has_suffix(filename.1.as_slice(), REGULAR_SUFFIX.as_bytes());
+                    }
+                    if has_suffix(&filename.str_[..], EXIT_SUFFIX.as_bytes()) {
+                        return result;
+                    }
+                }
             }
         }
-        return 0;
-    })
-    .expect("error adding signal ringbuf handler");
+    });
 
     let filename = random_prefix(128);
     run_scripts(vec![
@@ -218,10 +209,19 @@ async fn test_process_long_filename() {
         ("exit".into(), EXIT_SUFFIX.into(), scripts::SCRIPT),
     ]);
 
-    let rb = rbb.build().expect("error build ringbuff");
-    polling_ringbuffer(rb, receiver).await.expect("");
+    // exiting the test.
+    let test_result = test_result.await.expect("error awaiting test result");
+    drop(spe_skel);
+    signal_receivers
+        .exit_sender
+        .send(0)
+        .expect("error stopping ringbuf polling");
+    std::fs::remove_file(SIGNAL_RINGBUF_PATH).expect("error deleting signal ringbuf map");
+    std::fs::remove_file(BLOB_RINGBUF_PATH).expect("error deleting blob ringbuf map");
+    assert!(test_result);
 }
 
+/*
 #[tokio::test(flavor = "multi_thread")]
 async fn test_process_args() {
     let (sender, receiver) = unbounded_channel::<bool>();
