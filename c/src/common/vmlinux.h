@@ -4,8 +4,7 @@
 #include "common/int_types.h"
 
 #ifndef BPF_NO_PRESERVE_ACCESS_INDEX
-#pragma clang attribute push(__attribute__((preserve_access_index)),           \
-                             apply_to = record)
+#pragma clang attribute push (__attribute__((preserve_access_index)), apply_to = record)
 #endif
 
 #if defined(__TARGET_ARCH_x86)
