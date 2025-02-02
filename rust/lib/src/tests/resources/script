@@ -1,2 +1,2 @@
 #!/bin/sh -
-date > /dev/null
+date --date="@1394006400" > /dev/null

@@ -6,11 +6,12 @@ use crate::bpf::types;
 use crate::bpf::types::{lw_signal_header, lw_signal_task};
 use crate::bpf::types_conv::copy_from_bytes;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use libbpf_rs::{
     skel::{OpenSkel, Skel, SkelBuilder},
     RingBufferBuilder,
 };
+
 use std::time::Duration;
 use std::{ffi::OsStr, mem::MaybeUninit};
 use tokio::sync::{
@@ -18,10 +19,9 @@ use tokio::sync::{
     oneshot,
 };
 
-pub(crate) struct SignalReceivers {
+pub(crate) struct SignalContext {
     pub merged_blob_receivers: Vec<UnboundedReceiver<MergedBlob>>,
     pub task_receiver: UnboundedReceiver<lw_signal_task>,
-    pub exit_sender: oneshot::Sender<i8>,
 }
 
 fn lw_task_handler(
@@ -67,11 +67,19 @@ fn lw_task_handler(
     }
 }
 
+fn context_exit_fn(exit_sender: oneshot::Sender<bool>) -> impl FnOnce() -> Result<()> {
+    move || {
+        exit_sender
+            .send(true)
+            .map_err(|_| anyhow::Error::msg("error closing ringbuf context"))
+    }
+}
+
 pub(crate) fn setup_ringbufs(
     open_object: &mut MaybeUninit<libbpf_rs::OpenObject>,
     signal_ringbuf_path: &OsStr,
     blob_ringbuf_path: &OsStr,
-) -> Result<SignalReceivers> {
+) -> Result<(SignalContext, impl FnOnce() -> Result<()>)> {
     let builder = dummy::ProbeSkelBuilder::default();
     let open_skel = builder.open(open_object)?;
     let mut skel = open_skel.load()?;
@@ -109,7 +117,7 @@ pub(crate) fn setup_ringbufs(
     })?;
 
     let rb = rbb.build()?;
-    let (exit_sender, mut exit_receive) = oneshot::channel::<i8>();
+    let (exit_sender, mut exit_receive) = oneshot::channel::<bool>();
     tokio::spawn(async move {
         loop {
             match rb.poll(Duration::from_secs(1)) {
@@ -125,11 +133,13 @@ pub(crate) fn setup_ringbufs(
         }
     });
 
-    Ok(SignalReceivers {
-        merged_blob_receivers: srs.merged_blob_receivers.unwrap(),
-        task_receiver,
-        exit_sender,
-    })
+    Ok((
+        SignalContext {
+            merged_blob_receivers: srs.merged_blob_receivers.unwrap(),
+            task_receiver,
+        },
+        context_exit_fn(exit_sender),
+    ))
 }
 
 pub(crate) fn load_sched_process_exec<'a>(
