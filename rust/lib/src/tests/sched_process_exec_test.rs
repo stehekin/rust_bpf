@@ -32,15 +32,6 @@ const EXIT_SUFFIX: &str = ".lw_exit";
 const SIGNAL_RINGBUF_PATH: &str = "/sys/fs/bpf/lw_signal_ringbuf_test";
 const BLOB_RINGBUF_PATH: &str = "/sys/fs/bpf/lw_blob_ringbuf_test";
 
-fn setup_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<ProbeSkel> {
-    let builder = sched_process_exec::ProbeSkelBuilder::default();
-    let open_skel = builder.open(open_object)?;
-    let mut skel = open_skel.load()?;
-    skel.attach()?;
-
-    Ok(skel)
-}
-
 fn has_suffix(name: &[u8], suffix: &[u8]) -> bool {
     if let Some(position) = name.windows(suffix.len()).position(|win| win == suffix) {
         return position + suffix.len() == name.len() || name[position + suffix.len()] == 0;
@@ -54,41 +45,6 @@ fn run_scripts(scripts: Vec<(String, String, &'static str)>) -> JoinHandle<()> {
             run_script_with_name(s.0.as_str(), s.1.as_str(), s.2)
                 .await
                 .expect("error running script");
-        }
-    })
-}
-
-fn spawn_merged_blob_receivers(merged_blob_receivers: Vec<UnboundedReceiver<MergedBlob>>) {
-    for (cpu_id, mut r) in merged_blob_receivers.into_iter().enumerate() {
-        tokio::spawn(async move {
-            let merged_blob = r.recv().await.expect("");
-            let (cpu, _) = blob_id_to_seq(merged_blob.0);
-            assert_eq!(cpu_id, cpu);
-            assert!(has_suffix(
-                merged_blob.1.as_slice(),
-                REGULAR_SUFFIX.as_bytes()
-            ));
-        });
-    }
-}
-
-fn polling_ringbuffer(
-    rb: RingBuffer<'static>,
-    mut receiver: UnboundedReceiver<bool>,
-) -> JoinHandle<()> {
-    tokio::spawn(async move {
-        loop {
-            rb.poll(Duration::from_secs(1))
-                .expect("error polling ringbuffer");
-            match receiver.try_recv() {
-                Err(TryRecvError::Empty) => {}
-                Err(_) => {
-                    panic!("unexpected channel receving error!");
-                }
-                Ok(_) => {
-                    break;
-                }
-            }
         }
     })
 }
@@ -110,37 +66,39 @@ async fn test_process_regular() {
             .expect("error loading probe sched_process_exec");
 
     let test_result = tokio::spawn(async move {
+        let mut result = false;
         loop {
-            match signal_receivers.task_receiver.recv().await {
-                None => {
-                    return;
-                }
-                Some(task) => unsafe {
-                    if has_suffix(&task.body.exec.filename.str_[..], REGULAR_SUFFIX.as_bytes()) {}
-                    if has_suffix(&task.body.exec.filename.str_[..], EXIT_SUFFIX.as_bytes()) {
-                        break;
+            if let Some(task) = signal_receivers.task_receiver.recv().await {
+                unsafe {
+                    if has_suffix(&task.body.exec.filename.str_[..], REGULAR_SUFFIX.as_bytes()) {
+                        result = true;
                     }
-                },
+                    if has_suffix(&task.body.exec.filename.str_[..], EXIT_SUFFIX.as_bytes()) {
+                        return result;
+                    }
+                }
             }
         }
     });
 
     run_scripts(vec![
-        ("date".into(), UNSHARE_SUFFIX.into(), scripts::UNSHARE),
+        ("regular".into(), REGULAR_SUFFIX.into(), scripts::SCRIPT),
         ("exit".into(), EXIT_SUFFIX.into(), scripts::SCRIPT),
     ]);
 
-    test_result.await.expect("error awaiting test result");
+    let test_result = test_result.await.expect("error awaiting test result");
     drop(spe_skel);
     signal_receivers
         .exit_sender
         .send(0)
         .expect("error stopping ringbuf polling");
     std::fs::remove_file(SIGNAL_RINGBUF_PATH).expect("error deleting signal ringbuf map");
-    std::fs::remove_file(BLOB_RINGBUF_PATH).expect("error deleting blob ringbuf map")
+    std::fs::remove_file(BLOB_RINGBUF_PATH).expect("error deleting blob ringbuf map");
+    assert!(test_result);
 }
 
 /*
+
 #[tokio::test(flavor = "multi_thread")]
 #[serial]
 async fn test_process_child_namespaces() {
