@@ -26,8 +26,6 @@ pub(crate) async fn merge_blob(
 ) {
     let mut sentry: Option<lw_blob> = None;
 
-    print!("merge blob starting...\n");
-
     while let Some(blob_id) = blob_id_receiver.recv().await {
         if blob_id == 0 {
             continue;
@@ -85,7 +83,6 @@ pub(crate) async fn merge_blob(
             }
         }
     }
-    print!("merge blob exiting\n");
 }
 
 pub(crate) struct BlobSendersReceivers {

@@ -11,14 +11,17 @@ use libbpf_rs::{
     skel::{OpenSkel, Skel, SkelBuilder},
     RingBufferBuilder,
 };
-use log::error;
 use std::time::Duration;
 use std::{ffi::OsStr, mem::MaybeUninit};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::{
+    mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+    oneshot,
+};
 
 pub(crate) struct SignalReceivers {
     pub merged_blob_receivers: Vec<UnboundedReceiver<MergedBlob>>,
     pub task_receiver: UnboundedReceiver<lw_signal_task>,
+    pub exit_sender: oneshot::Sender<i8>,
 }
 
 fn lw_task_handler(
@@ -59,14 +62,8 @@ fn lw_task_handler(
     }
 
     match task_sender.send(task) {
-        Err(_) => {
-            print!("error sending task\n");
-            -1
-        }
-        _ => {
-            print!("success sending task\n");
-            0
-        }
+        Err(_) => -1,
+        _ => 0,
     }
 }
 
@@ -112,24 +109,26 @@ pub(crate) fn setup_ringbufs(
     })?;
 
     let rb = rbb.build()?;
+    let (exit_sender, mut exit_receive) = oneshot::channel::<i8>();
     tokio::spawn(async move {
         loop {
             match rb.poll(Duration::from_secs(1)) {
-                Err(err) => {
-                    print!("exiting ringbuf polling due to error {err}\n");
+                Err(_) => {
                     break;
                 }
-                _ => {
-                    print!("poll 1 sec here1\n");
-                }
+                _ => {}
+            }
+
+            if let Ok(v) = exit_receive.try_recv() {
+                break;
             }
         }
-        print!("here2\n");
     });
 
     Ok(SignalReceivers {
         merged_blob_receivers: srs.merged_blob_receivers.unwrap(),
         task_receiver,
+        exit_sender,
     })
 }
 

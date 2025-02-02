@@ -118,13 +118,11 @@ async fn test_process_regular() {
                 Some(task) => unsafe {
                     if has_suffix(&task.body.exec.filename.str_[..], REGULAR_SUFFIX.as_bytes()) {}
                     if has_suffix(&task.body.exec.filename.str_[..], EXIT_SUFFIX.as_bytes()) {
-                        print!("manade I see exit......\n");
                         break;
                     }
                 },
             }
         }
-        print!("nanade I am dying...\n")
     });
 
     run_scripts(vec![
@@ -133,8 +131,11 @@ async fn test_process_regular() {
     ]);
 
     test_result.await.expect("error awaiting test result");
-    print!("mammade about to drop spe_skel...");
     drop(spe_skel);
+    signal_receivers
+        .exit_sender
+        .send(0)
+        .expect("error stopping ringbuf polling");
     std::fs::remove_file(SIGNAL_RINGBUF_PATH).expect("error deleting signal ringbuf map");
     std::fs::remove_file(BLOB_RINGBUF_PATH).expect("error deleting blob ringbuf map")
 }
