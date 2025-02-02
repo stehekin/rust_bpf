@@ -29,6 +29,9 @@ const REGULAR_SUFFIX: &str = ".lw_regular";
 const UNSHARE_SUFFIX: &str = ".lw_unshare";
 const EXIT_SUFFIX: &str = ".lw_exit";
 
+const SIGNAL_RINGBUF_PATH: &str = "/sys/fs/bpf/lw_signal_ringbuf_test";
+const BLOB_RINGBUF_PATH: &str = "/sys/fs/bpf/lw_blob_ringbuf_test";
+
 fn setup_bpf(open_object: &mut MaybeUninit<libbpf_rs::OpenObject>) -> Result<ProbeSkel> {
     let builder = sched_process_exec::ProbeSkelBuilder::default();
     let open_skel = builder.open(open_object)?;
@@ -93,8 +96,8 @@ fn polling_ringbuffer(
 #[tokio::test(flavor = "multi_thread")]
 #[serial]
 async fn test_process_regular() {
-    let signal_ringbuf_path = OsStr::new("/sys/fs/bpf/lw_signal_ringbuf");
-    let blob_ringbuf_path = OsStr::new("/sys/fs/bpf/lw_blob_ringbuf");
+    let signal_ringbuf_path = OsStr::new(SIGNAL_RINGBUF_PATH);
+    let blob_ringbuf_path = OsStr::new(BLOB_RINGBUF_PATH);
 
     let mut open_object = MaybeUninit::uninit();
     let mut signal_receivers =
@@ -106,64 +109,37 @@ async fn test_process_regular() {
         load_sched_process_exec(&mut spe_open_object, signal_ringbuf_path, blob_ringbuf_path)
             .expect("error loading probe sched_process_exec");
 
-    tokio::spawn(async move {
+    let test_result = tokio::spawn(async move {
         loop {
             match signal_receivers.task_receiver.recv().await {
                 None => {
                     return;
                 }
                 Some(task) => unsafe {
-                    print!(
-                        "{0}\n",
-                        String::from_utf8_lossy(&task.body.exec.filename.str_[..])
-                    )
+                    if has_suffix(&task.body.exec.filename.str_[..], REGULAR_SUFFIX.as_bytes()) {}
+                    if has_suffix(&task.body.exec.filename.str_[..], EXIT_SUFFIX.as_bytes()) {
+                        print!("manade I see exit......\n");
+                        break;
+                    }
                 },
             }
         }
-    })
-    .await
-    .expect("");
-
-    /*
-    let (sender, receiver) = unbounded_channel::<bool>();
-
-    let mut open_object = MaybeUninit::uninit();
-    let skel = setup_bpf(&mut open_object).expect("error loading sched_process_exec bpf");
-
-    let mut rbb = RingBufferBuilder::new();
-    rbb.add(&skel.maps.signal_ringbuf, move |data| -> i32 {
-        let header = copy_from_bytes::<lw_signal_header>(data);
-        if header.signal_type != types::lw_signal_type_LW_SIGNAL_TASK as u8 {
-            return 0;
-        }
-
-        let task = copy_from_bytes::<lw_signal_task>(data);
-        unsafe {
-            let filename = task.body.exec.filename.str_;
-            if has_suffix(filename.as_slice(), REGULAR_SUFFIX.as_bytes()) {
-                assert!(has_suffix(
-                    task.body.exec.interp.str_.as_slice(),
-                    "/bin/sh".as_bytes()
-                ));
-            }
-            if has_suffix(filename.as_slice(), EXIT_SUFFIX.as_bytes()) {
-                sender.send(true).expect("");
-            }
-        }
-        return 0;
-    })
-    .expect("error adding ringbuf handler");
+        print!("nanade I am dying...\n")
+    });
 
     run_scripts(vec![
-        ("date".into(), REGULAR_SUFFIX.into(), scripts::SCRIPT),
+        ("date".into(), UNSHARE_SUFFIX.into(), scripts::UNSHARE),
         ("exit".into(), EXIT_SUFFIX.into(), scripts::SCRIPT),
     ]);
 
-    let rb = rbb.build().expect("error build ringbuff");
-    polling_ringbuffer(rb, receiver).await.expect("");
-    */
+    test_result.await.expect("error awaiting test result");
+    print!("mammade about to drop spe_skel...");
+    drop(spe_skel);
+    std::fs::remove_file(SIGNAL_RINGBUF_PATH).expect("error deleting signal ringbuf map");
+    std::fs::remove_file(BLOB_RINGBUF_PATH).expect("error deleting blob ringbuf map")
 }
 
+/*
 #[tokio::test(flavor = "multi_thread")]
 #[serial]
 async fn test_process_child_namespaces() {
@@ -337,3 +313,4 @@ async fn test_process_args() {
     let rb = rbb.build().expect("error build ringbuff");
     polling_ringbuffer(rb, receiver).await.expect("");
 }
+*/

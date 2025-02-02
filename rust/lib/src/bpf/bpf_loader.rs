@@ -59,8 +59,14 @@ fn lw_task_handler(
     }
 
     match task_sender.send(task) {
-        Err(_) => -1,
-        _ => 0,
+        Err(_) => {
+            print!("error sending task\n");
+            -1
+        }
+        _ => {
+            print!("success sending task\n");
+            0
+        }
     }
 }
 
@@ -108,14 +114,17 @@ pub(crate) fn setup_ringbufs(
     let rb = rbb.build()?;
     tokio::spawn(async move {
         loop {
-            match rb.poll(Duration::MAX) {
+            match rb.poll(Duration::from_secs(1)) {
                 Err(err) => {
-                    error!("exiting ringbuf polling due to error {err}");
+                    print!("exiting ringbuf polling due to error {err}\n");
                     break;
                 }
-                _ => {}
+                _ => {
+                    print!("poll 1 sec here1\n");
+                }
             }
         }
+        print!("here2\n");
     });
 
     Ok(SignalReceivers {
