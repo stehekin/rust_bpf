@@ -86,6 +86,69 @@ async fn test_process_regular() {
         ("exit".into(), EXIT_SUFFIX.into(), scripts::SCRIPT),
     ]);
 
+    // exiting the test.
+    let test_result = test_result.await.expect("error awaiting test result");
+    drop(spe_skel);
+    signal_receivers
+        .exit_sender
+        .send(0)
+        .expect("error stopping ringbuf polling");
+    std::fs::remove_file(SIGNAL_RINGBUF_PATH).expect("error deleting signal ringbuf map");
+    std::fs::remove_file(BLOB_RINGBUF_PATH).expect("error deleting blob ringbuf map");
+    assert!(test_result);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+#[serial]
+async fn test_process_child_namespaces() {
+    let signal_ringbuf_path = OsStr::new(SIGNAL_RINGBUF_PATH);
+    let blob_ringbuf_path = OsStr::new(BLOB_RINGBUF_PATH);
+
+    let mut open_object = MaybeUninit::uninit();
+    let mut signal_receivers =
+        setup_ringbufs(&mut open_object, signal_ringbuf_path, blob_ringbuf_path)
+            .expect("error setting up ringbufs");
+
+    let mut spe_open_object = MaybeUninit::uninit();
+    let spe_skel =
+        load_sched_process_exec(&mut spe_open_object, signal_ringbuf_path, blob_ringbuf_path)
+            .expect("error loading probe sched_process_exec");
+
+    let test_result = tokio::spawn(async move {
+        let mut parent = 0;
+        let mut grand_parent = 0;
+        let mut result = true;
+        loop {
+            if let Some(task) = signal_receivers.task_receiver.recv().await {
+                unsafe {
+                    let filename = task.body.exec.filename.str_;
+
+                    if has_suffix(filename.as_slice(), UNSHARE_SUFFIX.as_bytes()) {
+                        grand_parent = task.body.pid.pid;
+                    } else if has_suffix(filename.as_slice(), "unshare".as_bytes()) {
+                        parent = task.body.pid.pid;
+                        result = result && task.body.parent.pid == grand_parent;
+                    }
+
+                    if task.body.pid.pid_vnr == 1 {
+                        result = result && task.body.parent.pid == parent;
+                        result = result && has_suffix(filename.as_slice(), "date".as_bytes());
+                    }
+
+                    if has_suffix(filename.as_slice(), EXIT_SUFFIX.as_bytes()) {
+                        return result;
+                    }
+                }
+            }
+        }
+    });
+
+    run_scripts(vec![
+        ("date".into(), UNSHARE_SUFFIX.into(), scripts::UNSHARE),
+        ("exit".into(), EXIT_SUFFIX.into(), scripts::SCRIPT),
+    ]);
+
+    // exiting the test.
     let test_result = test_result.await.expect("error awaiting test result");
     drop(spe_skel);
     signal_receivers
@@ -98,58 +161,6 @@ async fn test_process_regular() {
 }
 
 /*
-
-#[tokio::test(flavor = "multi_thread")]
-#[serial]
-async fn test_process_child_namespaces() {
-    let (sender, receiver) = unbounded_channel::<bool>();
-
-    let mut open_object = MaybeUninit::uninit();
-    let skel = setup_bpf(&mut open_object).expect("error loading sched_process_exec bpf");
-
-    let mut rbb = RingBufferBuilder::new();
-    let grand_parent: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
-    let parent: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
-
-    rbb.add(&skel.maps.signal_ringbuf, move |data| -> i32 {
-        let header = copy_from_bytes::<lw_signal_header>(data);
-        if header.signal_type != types::lw_signal_type_LW_SIGNAL_TASK as u8 {
-            return 0;
-        }
-
-        let task = copy_from_bytes::<lw_signal_task>(data);
-        unsafe {
-            let filename = task.body.exec.filename.str_;
-
-            if has_suffix(filename.as_slice(), UNSHARE_SUFFIX.as_bytes()) {
-                *grand_parent.borrow_mut() = task.body.pid.pid;
-            } else if has_suffix(filename.as_slice(), "unshare".as_bytes()) {
-                *parent.borrow_mut() = task.body.pid.pid;
-                assert_eq!(task.body.parent.pid, *grand_parent.borrow());
-            }
-
-            if task.body.pid.pid_vnr == 1 {
-                assert_eq!(task.body.parent.pid, *parent.borrow());
-                assert!(has_suffix(filename.as_slice(), "date".as_bytes()))
-            }
-
-            if has_suffix(filename.as_slice(), EXIT_SUFFIX.as_bytes()) {
-                sender.send(true).expect("");
-            }
-        }
-        return 0;
-    })
-    .unwrap();
-
-    run_scripts(vec![
-        ("date".into(), UNSHARE_SUFFIX.into(), scripts::UNSHARE),
-        ("exit".into(), EXIT_SUFFIX.into(), scripts::SCRIPT),
-    ]);
-
-    let rb = rbb.build().expect("error build ringbuff");
-    polling_ringbuffer(rb, receiver).await.expect("");
-}
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_process_long_filename() {
     let (sender, receiver) = unbounded_channel::<bool>();
