@@ -16,7 +16,7 @@ fn build_bpf(c_bpf_dir: &str) {
         include.as_str(),
     ];
 
-    let bpfs = vec!["dummy", "sched_process_exec"];
+    let bpfs = vec!["dummy", "sched_process_exec", "cgroup"];
 
     for bpf in bpfs {
         let source = format!("{0}/{1}/probe.bpf.c", c_bpf_dir, bpf);

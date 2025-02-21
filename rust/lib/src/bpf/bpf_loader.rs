@@ -1,17 +1,24 @@
 use crate::bpf::blob::{blob_id_to_seq, spawn_blob_mergers, MergedBlob};
+use crate::bpf::cgroup;
 use crate::bpf::dummy;
 use crate::bpf::sched_process_exec;
-use crate::bpf::sched_process_exec::ProbeSkel;
 use crate::bpf::types;
 use crate::bpf::types::{lw_signal_header, lw_signal_task};
 use crate::bpf::types_conv::copy_from_bytes;
 
 use anyhow::{bail, Result};
+use libbpf_rs::AsRawLibbpf;
+use libbpf_rs::Link;
 use libbpf_rs::{
     skel::{OpenSkel, Skel, SkelBuilder},
-    RingBufferBuilder,
+    Iter, RingBufferBuilder,
 };
+use libbpf_sys::{bpf_iter_attach_opts, bpf_iter_link_info, BPF_CGROUP_ITER_SELF_ONLY};
 
+use std::mem;
+use std::os::unix::io::AsRawFd;
+use std::os::unix::io::BorrowedFd;
+use std::ptr::NonNull;
 use std::time::Duration;
 use std::{ffi::OsStr, mem::MaybeUninit};
 use tokio::sync::{
@@ -146,7 +153,7 @@ pub(crate) fn load_sched_process_exec<'a>(
     open_object: &'a mut MaybeUninit<libbpf_rs::OpenObject>,
     signal_ringbuf_path: &OsStr,
     blob_ringbuf_path: &OsStr,
-) -> Result<ProbeSkel<'a>> {
+) -> Result<sched_process_exec::ProbeSkel<'a>> {
     let builder = sched_process_exec::ProbeSkelBuilder::default();
     let mut open_skel = builder.open(open_object)?;
 
@@ -163,4 +170,69 @@ pub(crate) fn load_sched_process_exec<'a>(
     skel.attach()?;
 
     Ok(skel)
+}
+
+/// Check the returned pointer of a `libbpf` call, extracting any
+/// reported errors and converting them.
+fn validate_bpf_ret<T>(ptr: *mut T) -> Result<NonNull<T>> {
+    // SAFETY: `libbpf_get_error` is always safe to call.
+    match unsafe { libbpf_sys::libbpf_get_error(ptr as *const _) } {
+        0 => {
+            debug_assert!(!ptr.is_null());
+            // SAFETY: libbpf guarantees that if NULL is returned an
+            //         error it set, so we will always end up with a
+            //         valid pointer when `libbpf_get_error` returned 0.
+            let ptr = unsafe { NonNull::new_unchecked(ptr) };
+            Ok(ptr)
+        }
+        err => Err(anyhow::Error::new(std::io::Error::from_raw_os_error(
+            -err as i32,
+        ))),
+    }
+}
+
+// https://github.com/torvalds/linux/blob/master/tools/testing/selftests/bpf/prog_tests/cgroup_hierarchical_stats.c
+fn attach_iter_cgroup(
+    prog: &libbpf_rs::Program,
+    cgroup_fd: BorrowedFd<'_>,
+    order: u32,
+) -> Result<Link> {
+    let mut linkinfo = libbpf_sys::bpf_iter_link_info::default();
+    linkinfo.cgroup.cgroup_fd = cgroup_fd.as_raw_fd() as _;
+    linkinfo.cgroup.order = order;
+
+    let attach_opt = libbpf_sys::bpf_iter_attach_opts {
+        link_info: &mut linkinfo as *mut libbpf_sys::bpf_iter_link_info,
+        link_info_len: size_of::<libbpf_sys::bpf_iter_link_info>() as _,
+        sz: size_of::<libbpf_sys::bpf_iter_attach_opts>() as _,
+        ..Default::default()
+    };
+
+    let ptr = unsafe {
+        libbpf_sys::bpf_program__attach_iter(
+            prog.as_libbpf_object().as_ptr(),
+            &attach_opt as *const libbpf_sys::bpf_iter_attach_opts,
+        )
+    };
+
+    let ptr = validate_bpf_ret(ptr).expect("failed to attach iterator");
+    // SAFETY: the pointer came from libbpf and has been checked for errors.
+    let link = unsafe { libbpf_rs::Link::from_ptr(ptr) };
+    Ok(link)
+}
+
+pub(crate) fn load_cgroup_iter<'a>(
+    open_object: &'a mut MaybeUninit<libbpf_rs::OpenObject>,
+    fd: BorrowedFd<'_>,
+) -> Result<()> {
+    print!(">>>>>>> fd {:?} <<<<<<<< \n", fd);
+
+    let builder = cgroup::ProbeSkelBuilder::default();
+    let open_skel = builder.open(open_object)?;
+    let skel = open_skel.load()?;
+
+    let mut link = attach_iter_cgroup(&skel.progs.dumper, fd, BPF_CGROUP_ITER_SELF_ONLY)?;
+
+    link.pin("/sys/fs/bpf/cgroup_iter")?;
+    Ok(())
 }

@@ -3,6 +3,8 @@ mod blob_test;
 #[cfg(test)]
 mod bprm_committed_creds_test;
 #[cfg(test)]
+mod cgroup_test;
+#[cfg(test)]
 mod file_open_test;
 #[cfg(test)]
 mod resources;

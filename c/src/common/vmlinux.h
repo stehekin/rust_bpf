@@ -1,6 +1,7 @@
 #ifndef __VMLINUX_H__
 #define __VMLINUX_H__
 
+#include "bpf_helpers.h"
 #include "common/int_types.h"
 
 #ifndef BPF_NO_PRESERVE_ACCESS_INDEX
@@ -266,6 +267,23 @@ struct task_struct {
   struct pid *thread_pid;
   struct nsproxy *nsproxy;
   unsigned int sessionid;
+};
+
+struct kernfs_node {
+    u64 id;
+    const char *name;
+};
+
+struct cgroup {
+    struct kernfs_node *kn;
+};
+
+struct bpf_iter_meta {
+        union {
+                struct seq_file *seq;
+        };
+        u64 session_id;
+        u64 seq_num;
 };
 
 #ifndef BPF_NO_PRESERVE_ACCESS_INDEX
