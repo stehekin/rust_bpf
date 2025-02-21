@@ -225,14 +225,11 @@ pub(crate) fn load_cgroup_iter<'a>(
     open_object: &'a mut MaybeUninit<libbpf_rs::OpenObject>,
     fd: BorrowedFd<'_>,
 ) -> Result<()> {
-    print!(">>>>>>> fd {:?} <<<<<<<< \n", fd);
-
     let builder = cgroup::ProbeSkelBuilder::default();
     let open_skel = builder.open(open_object)?;
     let skel = open_skel.load()?;
 
     let mut link = attach_iter_cgroup(&skel.progs.dumper, fd, BPF_CGROUP_ITER_SELF_ONLY)?;
-
     link.pin("/sys/fs/bpf/cgroup_iter")?;
     Ok(())
 }
