@@ -1,11 +1,5 @@
-// #include "common/int_types.h"
-// #include "common/signals.h"
-// #include "common/str.h"
-// #include "common/types.h"
-// #include "common/vmlinux.h"
-// #include "common/task.h"
-// #include "common/blob.h"
-// #include "common/maps.h"
+#include "common/int_types.h"
+#include "common/vmlinux.h"
 
 #include <linux/bpf.h>
 #include <linux/types.h>
@@ -18,9 +12,18 @@
 
 char _license[] SEC("license") = "GPL";
 
-// extern void cgroup_rstat_flush(struct cgroup *cgrp) __ksym;
-
+// https://github.com/torvalds/linux/blob/master/tools/testing/selftests/bpf/progs/cgroup_hierarchical_stats.c
 SEC("iter.s/cgroup")
-int BPF_PROG(dumper, struct cgroup * cgroup) {
+int BPF_PROG(cgroup_iter, struct bpf_iter_meta *meta, struct cgroup *cgrp) {
+    if (!meta || !cgrp) {
+        return 1;
+    }
+    struct seq_file *seq = meta->seq;
+    u64 cg_id = BPF_CORE_READ(cgrp, kn, id);
+    if (!cg_id) {
+        return 1;
+    }
+
+    BPF_SEQ_PRINTF(seq, "%d:%s\n", cg_id, BPF_CORE_READ(cgrp, kn, name));
     return 0;
 }

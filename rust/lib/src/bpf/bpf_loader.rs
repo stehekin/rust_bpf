@@ -13,7 +13,7 @@ use libbpf_rs::{
     skel::{OpenSkel, Skel, SkelBuilder},
     Iter, RingBufferBuilder,
 };
-use libbpf_sys::{bpf_iter_attach_opts, bpf_iter_link_info, BPF_CGROUP_ITER_SELF_ONLY};
+use libbpf_sys::{bpf_iter_attach_opts, bpf_iter_link_info, BPF_CGROUP_ITER_ANCESTORS_UP};
 
 use std::mem;
 use std::os::unix::io::AsRawFd;
@@ -198,7 +198,9 @@ fn attach_iter_cgroup(
     order: u32,
 ) -> Result<Link> {
     let mut linkinfo = libbpf_sys::bpf_iter_link_info::default();
-    linkinfo.cgroup.cgroup_fd = cgroup_fd.as_raw_fd() as _;
+    // linkinfo.cgroup.cgroup_fd = cgroup_fd.as_raw_fd() as _;
+    //
+    linkinfo.cgroup.cgroup_id = 4833;
     linkinfo.cgroup.order = order;
 
     let attach_opt = libbpf_sys::bpf_iter_attach_opts {
@@ -224,12 +226,13 @@ fn attach_iter_cgroup(
 pub(crate) fn load_cgroup_iter<'a>(
     open_object: &'a mut MaybeUninit<libbpf_rs::OpenObject>,
     fd: BorrowedFd<'_>,
-) -> Result<()> {
+) -> Result<Iter> {
     let builder = cgroup::ProbeSkelBuilder::default();
     let open_skel = builder.open(open_object)?;
     let skel = open_skel.load()?;
 
-    let mut link = attach_iter_cgroup(&skel.progs.dumper, fd, BPF_CGROUP_ITER_SELF_ONLY)?;
-    link.pin("/sys/fs/bpf/cgroup_iter")?;
-    Ok(())
+    let mut link = attach_iter_cgroup(&skel.progs.cgroup_iter, fd, BPF_CGROUP_ITER_ANCESTORS_UP)?;
+    // link.pin("/sys/fs/bpf/cgroup_iter")?;
+    let iter = Iter::new(&link)?;
+    Ok(iter)
 }
