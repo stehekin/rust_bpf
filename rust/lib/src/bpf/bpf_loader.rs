@@ -221,13 +221,17 @@ fn attach_iter_cgroup(prog: &libbpf_rs::Program, cgroup_id: u64, order: u32) -> 
 
 pub(crate) fn load_cgroup_iter<'a>(
     open_object: &'a mut MaybeUninit<libbpf_rs::OpenObject>,
+) -> Result<cgroup::ProbeSkel<'a>> {
+    let builder = cgroup::ProbeSkelBuilder::default();
+    let open_skel = builder.open(open_object)?;
+    open_skel.load().map_err(anyhow::Error::msg)
+}
+
+pub(crate) fn config_cgroup_iter<'a>(
+    skel: &cgroup::ProbeSkel,
     cgroup_id: u64,
     order: u32,
 ) -> Result<Iter> {
-    let builder = cgroup::ProbeSkelBuilder::default();
-    let open_skel = builder.open(open_object)?;
-    let skel = open_skel.load()?;
-
     let link = attach_iter_cgroup(&skel.progs.cgroup_iter, cgroup_id, order)?;
     let iter = Iter::new(&link)?;
     Ok(iter)
