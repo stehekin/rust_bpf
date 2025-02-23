@@ -192,15 +192,11 @@ fn validate_bpf_ret<T>(ptr: *mut T) -> Result<NonNull<T>> {
 }
 
 // https://github.com/torvalds/linux/blob/master/tools/testing/selftests/bpf/prog_tests/cgroup_hierarchical_stats.c
-fn attach_iter_cgroup(
-    prog: &libbpf_rs::Program,
-    cgroup_fd: BorrowedFd<'_>,
-    order: u32,
-) -> Result<Link> {
+fn attach_iter_cgroup(prog: &libbpf_rs::Program, cgroup_id: u64, order: u32) -> Result<Link> {
     let mut linkinfo = libbpf_sys::bpf_iter_link_info::default();
     // linkinfo.cgroup.cgroup_fd = cgroup_fd.as_raw_fd() as _;
     //
-    linkinfo.cgroup.cgroup_id = 4833;
+    linkinfo.cgroup.cgroup_id = cgroup_id;
     linkinfo.cgroup.order = order;
 
     let attach_opt = libbpf_sys::bpf_iter_attach_opts {
@@ -225,14 +221,14 @@ fn attach_iter_cgroup(
 
 pub(crate) fn load_cgroup_iter<'a>(
     open_object: &'a mut MaybeUninit<libbpf_rs::OpenObject>,
-    fd: BorrowedFd<'_>,
+    cgroup_id: u64,
+    order: u32,
 ) -> Result<Iter> {
     let builder = cgroup::ProbeSkelBuilder::default();
     let open_skel = builder.open(open_object)?;
     let skel = open_skel.load()?;
 
-    let mut link = attach_iter_cgroup(&skel.progs.cgroup_iter, fd, BPF_CGROUP_ITER_ANCESTORS_UP)?;
-    // link.pin("/sys/fs/bpf/cgroup_iter")?;
+    let link = attach_iter_cgroup(&skel.progs.cgroup_iter, cgroup_id, order)?;
     let iter = Iter::new(&link)?;
     Ok(iter)
 }

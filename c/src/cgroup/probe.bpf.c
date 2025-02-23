@@ -24,6 +24,6 @@ int BPF_PROG(cgroup_iter, struct bpf_iter_meta *meta, struct cgroup *cgrp) {
         return 1;
     }
 
-    BPF_SEQ_PRINTF(seq, "%d:%s\n", cg_id, BPF_CORE_READ(cgrp, kn, name));
+    bpf_seq_write(seq, &cg_id, sizeof(u64));
     return 0;
 }
